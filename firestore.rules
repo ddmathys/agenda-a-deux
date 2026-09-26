@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(hid) {
+      return signedIn() && request.auth.uid in get(/databases/$(database)/documents/households/$(hid)).data.members;
+    }
+
+    // Chaque personne ne voit que la fiche qui pointe vers son agenda.
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // L'identifiant du foyer est le code d'invitation (8 caractères aléatoires).
+    match /households/{hid} {
+      allow read: if signedIn() && request.auth.uid in resource.data.members;
+
+      allow create: if signedIn()
+        && request.resource.data.members == [request.auth.uid]
+        && request.resource.data.people.keys().hasOnly([request.auth.uid]);
+
+      // Un membre peut modifier le foyer (sans toucher à la liste des membres).
+      allow update: if signedIn() && request.auth.uid in resource.data.members
+        && request.resource.data.members == resource.data.members;
+
+      // Rejoindre : il faut connaître le code, il reste une place,
+      // et on ne peut ajouter que soi-même.
+      allow update: if signedIn()
+        && resource.data.members.size() == 1
+        && !(request.auth.uid in resource.data.members)
+        && request.resource.data.members == resource.data.members.concat([request.auth.uid])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'people'])
+        && request.resource.data.people.diff(resource.data.people).affectedKeys().hasOnly([request.auth.uid]);
+
+      match /{coll}/{docId} {
+        allow read, write: if (coll == 'events' || coll == 'tasks') && isMember(hid);
+      }
+    }
+  }
+}
