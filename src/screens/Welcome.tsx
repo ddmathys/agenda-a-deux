@@ -8,8 +8,11 @@ export function Login() {
     setError('');
     try {
       await signIn();
-    } catch {
-      setError('La connexion a échoué. Réessaie.');
+    } catch (e) {
+      const code = (e as { code?: string }).code ?? 'inconnue';
+      setError(code === 'auth/configuration-not-found' || code === 'auth/operation-not-allowed'
+        ? 'La connexion Google n’est pas encore activée sur le projet.'
+        : `La connexion a échoué (${code}). Réessaie.`);
     }
   };
   return (
@@ -45,7 +48,7 @@ export function Setup({ user }: { user: User }) {
 
   const join = (e: FormEvent) => {
     e.preventDefault();
-    run(() => joinHousehold(user.uid, name.trim(), code), 'Code introuvable ou agenda déjà complet.');
+    run(() => joinHousehold(user.uid, name.trim(), user.email ?? '', code), 'Code introuvable ou agenda déjà complet.');
   };
 
   return (
@@ -59,7 +62,7 @@ export function Setup({ user }: { user: User }) {
       <div className="white-card col gap10">
         <h2 className="h18">Tu commences ?</h2>
         <p className="muted">Crée votre agenda, puis envoie le code à ta moitié.</p>
-        <button className="btn-dark" disabled={busy} onClick={() => run(() => createHousehold(user.uid, name.trim()), 'Création impossible. Réessaie.')}>
+        <button className="btn-dark" disabled={busy} onClick={() => run(() => createHousehold(user.uid, name.trim(), user.email ?? ''), 'Création impossible. Réessaie.')}>
           Créer notre agenda
         </button>
       </div>

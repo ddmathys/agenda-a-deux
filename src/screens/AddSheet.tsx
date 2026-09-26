@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { todayKey } from '../dates';
 import { addEvent, addTask, deleteEvent, deleteTask, updateEvent, updateTask } from '../data';
+import { calendarToken, createCal, deleteCal, updateCal } from '../gcal';
 import { parseQuick } from '../parse';
-import { ownerChoices, toneOf } from '../tones';
+import { ownerChoices, partnerUid, toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
 import { Icon } from '../ui';
 
@@ -44,6 +45,10 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  // Un événement vit dans le Google Agenda de celui qui l'a créé : seul lui peut le synchroniser.
+  const calMine = !ev?.gcalOwner || ev.gcalOwner === me;
+  const [toCal, setToCal] = useState(ev ? !!ev.gcalId : true);
   const recRef = useRef<InstanceType<SpeechCtor> | null>(null);
   const firstRef = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
 
@@ -100,23 +105,59 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
     }
     setBusy(true);
     setError('');
+
+    // Le jeton Google se demande avant tout autre await, sinon la popup est bloquée.
+    const ownCalEvent = !!ev?.gcalId && ev.gcalOwner === me;
+    const needCal = (kind === 'event' && toCal && calMine) || ownCalEvent;
+    let token: string | null = null;
+    let calFailed = false;
+    if (needCal) {
+      try {
+        token = await calendarToken();
+      } catch {
+        calFailed = true;
+      }
+    }
+
     try {
       if (kind === 'event') {
         const data = { title: t, date, start: start || null, end: (start && end) || null, place: place.trim(), owner };
-        if (ev) await updateEvent(h.id, ev.id, data);
+        let gcal: { gcalId: string | null; gcalOwner: string | null } | null = null;
+        if (token && calMine) {
+          const partner = partnerUid(h, me);
+          const partnerEmail = partner ? h.people[partner]?.email : undefined;
+          const input = { ...data, attendees: partnerEmail && owner !== me ? [partnerEmail] : [] };
+          try {
+            if (toCal && ev?.gcalId) await updateCal(token, ev.gcalId, input);
+            else if (toCal) gcal = { gcalId: await createCal(token, input), gcalOwner: me };
+            else if (ev?.gcalId) {
+              await deleteCal(token, ev.gcalId);
+              gcal = { gcalId: null, gcalOwner: null };
+            }
+          } catch {
+            calFailed = true;
+          }
+        }
+        if (ev) await updateEvent(h.id, ev.id, { ...data, ...gcal });
         else {
           if (task) await deleteTask(h.id, task.id);
-          await addEvent(h.id, me, data);
+          await addEvent(h.id, me, { ...data, ...(gcal ?? {}) });
         }
       } else {
         const data = { title: t, list, due: date || null, time: (date && start) || null, owner };
         if (task) await updateTask(h.id, task.id, data);
         else {
-          if (ev) await deleteEvent(h.id, ev.id);
+          if (ev) {
+            if (token && ownCalEvent) await deleteCal(token, ev.gcalId!).catch(() => (calFailed = true));
+            await deleteEvent(h.id, ev.id);
+          }
           await addTask(h.id, me, data);
         }
       }
-      onClose();
+      if (calFailed) {
+        setNotice('C’est enregistré dans l’app, mais Google Agenda n’a pas pu être mis à jour.');
+        setBusy(false);
+      } else onClose();
     } catch {
       setError('Impossible d’enregistrer. Réessaie.');
       setBusy(false);
@@ -125,9 +166,20 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
 
   const remove = async () => {
     setBusy(true);
+    let calFailed = false;
+    if (ev?.gcalId && ev.gcalOwner === me) {
+      try {
+        await deleteCal(await calendarToken(), ev.gcalId);
+      } catch {
+        calFailed = true;
+      }
+    }
     if (task) await deleteTask(h.id, task.id);
     if (ev) await deleteEvent(h.id, ev.id);
-    onClose();
+    if (calFailed) {
+      setNotice('Supprimé de l’app, mais pas de Google Agenda : supprime-le là-bas à la main.');
+      setBusy(false);
+    } else onClose();
   };
 
   const heading = isNew ? 'Ajout rapide' : kind === 'event' ? 'Événement' : 'Tâche';
@@ -225,8 +277,25 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
           </div>
         </div>
 
+        {kind === 'event' && (
+          calMine ? (
+            <label className="toggle-row">
+              <span className="grow">Mettre dans mon Google Agenda</span>
+              <input type="checkbox" checked={toCal} onChange={(e) => setToCal(e.target.checked)} />
+            </label>
+          ) : (
+            <p className="muted small">Cet événement est dans le Google Agenda de {h.people[ev!.gcalOwner!]?.name ?? 'l’autre'} : les changements faits ici ne s’y reportent pas.</p>
+          )
+        )}
+
         {error && <p className="error" role="alert">{error}</p>}
 
+        {notice ? (
+          <div className="col gap8">
+            <p className="error" role="alert">{notice}</p>
+            <button type="button" className="btn-dark" onClick={onClose}>Fermer</button>
+          </div>
+        ) : (
         <div className="col gap8 push-bottom">
           <button type="submit" className="btn-dark" disabled={busy}>
             {isNew ? (kind === 'task' ? 'Ajouter la tâche' : 'Ajouter à l’agenda') : 'Enregistrer'}
@@ -236,6 +305,7 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
             <button type="button" className="btn-ghost danger" onClick={remove} disabled={busy}>Supprimer</button>
           )}
         </div>
+        )}
       </form>
     </div>
   );

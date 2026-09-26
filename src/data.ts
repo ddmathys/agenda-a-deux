@@ -1,22 +1,26 @@
 import { useEffect, useState } from 'react';
-import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect, type User } from 'firebase/auth';
+import { getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, type User } from 'firebase/auth';
 import {
   addDoc, arrayUnion, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
+import { googleProvider, rememberToken } from './gcal';
 import { todayKey } from './dates';
 import { DEFAULT_LISTS, type EventItem, type Household, type Task } from './types';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
-  useEffect(() => onAuthStateChanged(auth, setUser), []);
+  useEffect(() => {
+    getRedirectResult(auth).then((r) => r && rememberToken(r)).catch(() => undefined);
+    return onAuthStateChanged(auth, setUser);
+  }, []);
   return user;
 }
 
 export async function signIn() {
-  const provider = new GoogleAuthProvider();
+  const provider = googleProvider();
   try {
-    await signInWithPopup(auth, provider);
+    rememberToken(await signInWithPopup(auth, provider));
   } catch (e) {
     const code = (e as { code?: string }).code;
     if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
@@ -73,22 +77,22 @@ export const useTasks = (hid: string) => useCollection<Task>(hid, 'tasks');
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-export async function createHousehold(uid: string, name: string) {
+export async function createHousehold(uid: string, name: string, email: string) {
   const code = Array.from(crypto.getRandomValues(new Uint32Array(8)), (n) => CODE_ALPHABET[n % CODE_ALPHABET.length]).join('');
   await setDoc(doc(db, 'households', code), {
     members: [uid],
-    people: { [uid]: { name, slot: 0 } },
+    people: { [uid]: { name, slot: 0, email } },
     lists: DEFAULT_LISTS,
     createdAt: serverTimestamp(),
   });
   await setDoc(doc(db, 'users', uid), { hid: code });
 }
 
-export async function joinHousehold(uid: string, name: string, rawCode: string) {
+export async function joinHousehold(uid: string, name: string, email: string, rawCode: string) {
   const code = rawCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
   await updateDoc(doc(db, 'households', code), {
     members: arrayUnion(uid),
-    [`people.${uid}`]: { name, slot: 1 },
+    [`people.${uid}`]: { name, slot: 1, email },
   });
   await setDoc(doc(db, 'users', uid), { hid: code });
 }

@@ -4,6 +4,7 @@ export type Owner = string;
 export interface Person {
   name: string;
   slot: 0 | 1;
+  email?: string;
 }
 
 export interface ListDef {
@@ -29,6 +30,8 @@ export interface EventItem {
   end: string | null;
   place: string;
   owner: Owner;
+  gcalId?: string | null; // id dans le Google Agenda de gcalOwner
+  gcalOwner?: string | null;
 }
 
 export interface Task {
