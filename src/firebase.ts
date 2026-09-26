@@ -6,7 +6,7 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 // l'accès aux données est protégé par firestore.rules.
 const firebaseConfig = {
   apiKey: 'AIzaSyAmCaRI1nn1T8lES15mn8pZ1VDn807SSEM',
-  authDomain: 'agenda-a-deux-dm.web.app',
+  authDomain: 'agenda-a-deux-dm.firebaseapp.com',
   projectId: 'agenda-a-deux-dm',
   storageBucket: 'agenda-a-deux-dm.firebasestorage.app',
   messagingSenderId: '25025576617',
