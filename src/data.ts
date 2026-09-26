@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import { getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, type User } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword, getRedirectResult, onAuthStateChanged, sendPasswordResetEmail,
+  signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, updateProfile, type User,
+} from 'firebase/auth';
 import {
   addDoc, arrayUnion, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc,
 } from 'firebase/firestore';
@@ -30,6 +33,15 @@ export async function signIn() {
     }
   }
 }
+
+export async function signUpEmail(name: string, email: string, password: string) {
+  const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+  if (name.trim()) await updateProfile(cred.user, { displayName: name.trim() });
+}
+
+export const signInEmail = (email: string, password: string) => signInWithEmailAndPassword(auth, email.trim(), password);
+
+export const resetPassword = (email: string) => sendPasswordResetEmail(auth, email.trim());
 
 /** undefined = chargement, null = pas encore de foyer. */
 export function useHousehold(uid: string | undefined) {

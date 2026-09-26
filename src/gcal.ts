@@ -1,4 +1,4 @@
-import { GoogleAuthProvider, reauthenticateWithPopup, type UserCredential } from 'firebase/auth';
+import { GoogleAuthProvider, linkWithPopup, reauthenticateWithPopup, type UserCredential } from 'firebase/auth';
 import { addDays, fromKey, keyOf } from './dates';
 import { auth } from './firebase';
 
@@ -42,7 +42,9 @@ export async function calendarToken(): Promise<string> {
   if (t) return t;
   const user = auth.currentUser;
   if (!user) throw new Error('not-signed-in');
-  const res = await reauthenticateWithPopup(user, googleProvider());
+  // Compte e-mail : on y associe le compte Google la première fois.
+  const hasGoogle = user.providerData.some((p) => p.providerId === 'google.com');
+  const res = hasGoogle ? await reauthenticateWithPopup(user, googleProvider()) : await linkWithPopup(user, googleProvider());
   rememberToken(res);
   const fresh = storedToken();
   if (!fresh) throw new Error('no-token');
