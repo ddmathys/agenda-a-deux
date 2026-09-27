@@ -29,7 +29,7 @@ const MONTHS: Record<string, number> = {
   decembre: 11, décembre: 11, dec: 11, déc: 11,
 };
 
-const EVENT_WORDS = /\b(rdv|rendez-vous|réunion|reunion|dîner|diner|déjeuner|dejeuner|apéro|apero|ciné|cine|cinéma|brunch|soirée|soiree|fête|fete|vol|train|match|concert|spectacle|resto|restaurant|anniversaire de|chez)\b/i;
+const EVENT_WORDS = /\b(rdv|rendez-vous|réunion|reunion|dîner|diner|déjeuner|dejeuner|apéro|apero|ciné|cine|cinéma|brunch|soirée|soiree|fête|fete|vol|train|match|concert|spectacle|resto|restaurant|anniversaire de|chez|piscine|natation|foot|football|tennis|basket|judo|danse|gym|yoga|sport|entraînement|entrainement|cours|leçon|lecon|médecin|medecin|docteur|dentiste|pédiatre|pediatre|coiffeur|kiné|kine|visite|mariage|baptême|bapteme|vacances|séance|seance)\b/i;
 
 const LIST_RULES: [string, RegExp][] = [
   ['courses', /\b(acheter|courses|lait|pain|fruits?|légumes|legumes|couches|migros|coop|denner|lidl|aldi|supermarché)\b/i],

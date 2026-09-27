@@ -148,11 +148,8 @@ function Invite({ code }: { code: string }) {
   };
   return (
     <section className="invite">
-      <div className="col gap2 grow min0">
-        <span className="invite-label">Invite ta moitié avec ce code</span>
-        <span className="invite-code">{code}</span>
-      </div>
-      <button className="btn-dark sm" onClick={share}>{Icon.share}{copied ? 'Copié' : 'Partager'}</button>
+      <span>Ta moitié n’est pas encore là</span>
+      <button className="link" onClick={share}>{Icon.share}{copied ? 'Lien copié' : 'Inviter'}</button>
     </section>
   );
 }
