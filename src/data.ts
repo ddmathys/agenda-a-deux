@@ -1,29 +1,31 @@
 import { useEffect, useState } from 'react';
 import {
-  createUserWithEmailAndPassword, getRedirectResult, onAuthStateChanged, sendPasswordResetEmail,
+  createUserWithEmailAndPassword, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, sendPasswordResetEmail,
   signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, updateProfile, type User,
 } from 'firebase/auth';
 import {
   addDoc, arrayUnion, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { googleProvider, rememberToken } from './gcal';
 import { todayKey } from './dates';
 import { DEFAULT_LISTS, type EventItem, type Household, type Task } from './types';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   useEffect(() => {
-    getRedirectResult(auth).then((r) => r && rememberToken(r)).catch(() => undefined);
+    getRedirectResult(auth).catch(() => undefined);
     return onAuthStateChanged(auth, setUser);
   }, []);
   return user;
 }
 
+// Connexion sans l'accès Google Agenda : ce droit « sensible » affichait l'avertissement
+// « Google n'a pas validé cette application » à chaque connexion. Il n'est demandé
+// qu'au moment d'envoyer un événement dans Google Agenda (voir calendarToken).
 export async function signIn() {
-  const provider = googleProvider();
+  const provider = new GoogleAuthProvider();
   try {
-    rememberToken(await signInWithPopup(auth, provider));
+    await signInWithPopup(auth, provider);
   } catch (e) {
     const code = (e as { code?: string }).code;
     if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {

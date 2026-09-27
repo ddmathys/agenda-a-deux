@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.web.agenda_a_deux_dm",
+    "sha256_cert_fingerprints": ["27:1A:F8:AD:15:5B:2B:83:00:8F:E5:60:4F:9C:23:72:43:33:0B:71:C4:04:4A:E7:00:B3:12:F5:F6:6C:51:53"]
+  }
+}]
