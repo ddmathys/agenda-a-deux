@@ -110,7 +110,6 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
       <section className="col gap10">
         <div className="section-head">
           <h2>Tâches</h2>
-          <button className="link" onClick={() => onTab('lists')}>Listes</button>
         </div>
         <div className="card-list">
           {shownTasks.length === 0 && <Empty>Rien à faire. Profitez-en.</Empty>}

@@ -248,17 +248,10 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
               )}
             </span>
           </div>
-          {kind === 'event' ? (
+          {kind === 'event' && (
             <label className="field">
               <span className="field-name">Où</span>
               <input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Lieu (facultatif)" />
-            </label>
-          ) : (
-            <label className="field">
-              <span className="field-name">Liste</span>
-              <select value={list} onChange={(e) => setList(e.target.value)}>
-                {h.lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-              </select>
             </label>
           )}
         </div>

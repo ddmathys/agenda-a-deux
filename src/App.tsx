@@ -2,7 +2,6 @@ import { useState } from 'react';
 import type { User } from 'firebase/auth';
 import { useAuth, useEvents, useHousehold, useTasks } from './data';
 import { AddSheet, type SheetMode } from './screens/AddSheet';
-import { Lists } from './screens/Lists';
 import { Today } from './screens/Today';
 import { Upcoming } from './screens/Upcoming';
 import { Login, Setup } from './screens/Welcome';
@@ -41,7 +40,6 @@ function Shell({ h, user }: { h: Household; user: User }) {
     <div className="app">
       {tab === 'today' && <Today h={h} me={me} events={events} tasks={tasks} onTab={go} {...edit} />}
       {tab === 'upcoming' && <Upcoming h={h} events={events} tasks={tasks} {...edit} />}
-      {tab === 'lists' && <Lists h={h} me={me} tasks={tasks} onEditTask={edit.onEditTask} />}
       <Nav tab={tab} onTab={go} onAdd={() => setSheet({ kind: 'new' })} />
       {sheet && (
         <AddSheet
