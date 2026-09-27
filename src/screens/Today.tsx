@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { longLabel, todayKey } from '../dates';
-import { toggleTask } from '../data';
+import { addTask, toggleTask } from '../data';
 import { ownerChoices, partnerUid, toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
 import { Avatar, Check, DueChip, Empty, Icon, type Tab } from '../ui';
@@ -17,6 +17,7 @@ interface Props {
 
 export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: Props) {
   const [filter, setFilter] = useState<string>('all');
+  const [draft, setDraft] = useState('');
   const today = todayKey();
   const keep = (o: string) => filter === 'all' || o === filter;
 
@@ -27,7 +28,18 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
   const evs = events.filter((e) => e.date === today).sort((a, b) => (a.start ?? '').localeCompare(b.start ?? ''));
 
   const shownEvents = evs.filter((e) => keep(e.owner));
-  const shownTasks = todays.filter((t) => keep(t.owner));
+  // Toutes les tâches ouvertes (+ celles cochées aujourd'hui) : en retard / du jour, puis datées, puis sans date.
+  const shownTasks = tasks
+    .filter((t) => keep(t.owner) && (!t.done || t.doneOn === today))
+    .sort((a, b) => Number(a.done) - Number(b.done) || (a.due ?? '9999').localeCompare(b.due ?? '9999') || (a.time ?? '99').localeCompare(b.time ?? '99'));
+
+  const add = async (e: FormEvent) => {
+    e.preventDefault();
+    const title = draft.trim();
+    if (!title) return;
+    setDraft('');
+    await addTask(h.id, me, { title, list: h.lists[0]?.id ?? 'maison', due: null, time: null, owner: filter === 'all' ? 'both' : filter });
+  };
   const partner = partnerUid(h, me);
   const pills = [{ id: 'all', label: 'Tout' }, ...ownerChoices(h, me)];
 
@@ -97,22 +109,24 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
 
       <section className="col gap10">
         <div className="section-head">
-          <h2>À faire aujourd’hui</h2>
+          <h2>Tâches</h2>
           <button className="link" onClick={() => onTab('lists')}>Listes</button>
         </div>
-        {shownTasks.length === 0 ? (
-          <Empty>Rien d’urgent. Profitez-en.</Empty>
-        ) : (
-          <div className="card-list">
-            {shownTasks.map((t) => (
-              <div key={t.id} className="task-row">
-                <Check h={h} task={t} onToggle={() => toggleTask(h.id, t)} />
-                <button className={t.done ? 'task-title done' : 'task-title'} onClick={() => onEditTask(t)}>{t.title}</button>
-                <DueChip h={h} task={t} personTone={t.due === today} />
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="card-list">
+          {shownTasks.length === 0 && <Empty>Rien à faire. Profitez-en.</Empty>}
+          {shownTasks.map((t) => (
+            <div key={t.id} className="task-row">
+              <Check h={h} task={t} onToggle={() => toggleTask(h.id, t)} />
+              <button className={t.done ? 'task-title done' : 'task-title'} onClick={() => onEditTask(t)}>{t.title}</button>
+              <DueChip h={h} task={t} personTone={t.due === today} />
+            </div>
+          ))}
+          <form className="add-inline" onSubmit={add}>
+            <span aria-hidden="true">{Icon.plusSm}</span>
+            <label className="sr-only" htmlFor="today-task">Nouvelle tâche</label>
+            <input id="today-task" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Ajouter une tâche…" enterKeyHint="done" />
+          </form>
+        </div>
       </section>
     </div>
   );

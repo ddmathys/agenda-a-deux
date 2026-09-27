@@ -207,33 +207,7 @@ h1, h2 { margin: 0; }
 .add-inline input { flex-grow: 1; min-width: 0; height: 44px; border: none; background: transparent; font-size: 15px; font-weight: 500; outline: none; }
 .add-inline input::placeholder { color: var(--muted); }
 
-/* Mois */
-.month { background: var(--white); border-radius: 24px; padding: 12px 10px; display: flex; flex-direction: column; gap: 6px; }
-.month-head, .month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
-.month-head { font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; }
-.mcell {
-  height: 48px; border-radius: 14px; border: none; padding: 0; background: transparent; display: flex;
-  flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 15px; font-weight: 700;
-}
-.mcell.out { color: #B6AFC2; }
-.mcell.today { background: var(--yellow); }
-.mcell.on { background: var(--blue); color: var(--white); }
-
-.day-card { background: var(--ink); color: var(--white); border-radius: 24px; padding: 16px 16px 10px; display: flex; flex-direction: column; gap: 4px; }
-.day-count { font-size: 12.5px; font-weight: 500; color: #C9C5D8; }
-.day-item {
-  display: flex; align-items: center; gap: 10px; min-height: 44px; border: none; background: none;
-  color: var(--white); padding: 0; text-align: left; font-size: 14.5px; font-weight: 500;
-}
-.day-item .struck { color: #9C97AE; }
-.mark { width: 4px; height: 24px; border-radius: 2px; flex-shrink: 0; }
-.day-time { width: 44px; flex-shrink: 0; font-size: 13px; font-weight: 700; color: #C9C5D8; }
-.who { font-size: 11.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); flex-shrink: 0; }
-
 .white-card { background: var(--white); border-radius: 24px; padding: 16px; }
-.split-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; gap: 3px; }
-.legend { font-size: 13px; font-weight: 700; }
-.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
 
 /* Navigation */
 .nav {
