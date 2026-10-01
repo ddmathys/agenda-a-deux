@@ -49,6 +49,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
   const [repeat, setRepeat] = useState<Repeat>('none');
   const [until, setUntil] = useState('');
   const [untilTouched, setUntilTouched] = useState(false);
+  const [flipped, setFlipped] = useState(false);
   // Un événement répété donne une fiche par date, toutes reliées : on choisit
   // si une retouche vaut pour cette fois-là ou pour toute la série.
   const [scope, setScope] = useState<'one' | 'all'>('one');
@@ -296,7 +297,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
 
         {!inSeries && (
           <div className="segmented" role="group" aria-label="Type">
-            <button type="button" className={kind === 'task' ? 'on' : ''} onClick={() => { setKind('task'); setRepeat('none'); }} aria-pressed={kind === 'task'}>Tâche</button>
+            <button type="button" className={kind === 'task' ? 'on' : ''} onClick={() => { setKind('task'); setRepeat('none'); setFlipped(false); }} aria-pressed={kind === 'task'}>Tâche</button>
             <button type="button" className={kind === 'event' ? 'on' : ''} onClick={() => setKind('event')} aria-pressed={kind === 'event'}>Événement</button>
           </div>
         )}
@@ -346,10 +347,22 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
               <input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Lieu (facultatif)" />
             </label>
           )}
-          {isNew && kind === 'event' && (
+          {isNew && (
             <label className="field">
               <span className="field-name">Répéter</span>
-              <select value={repeat} onChange={(e) => setRepeat(e.target.value as Repeat)}>
+              <select
+                value={repeat}
+                onChange={(e) => {
+                  const r = e.target.value as Repeat;
+                  setRepeat(r);
+                  // Seuls les événements se répètent : on bascule et on le dit.
+                  if (r !== 'none' && kind === 'task') {
+                    setKind('event');
+                    setFlipped(true);
+                  }
+                  if (r === 'none') setFlipped(false);
+                }}
+              >
                 {REPEAT_CHOICES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
             </label>
@@ -369,6 +382,9 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
             </label>
           )}
         </div>
+        {flipped && repeating && (
+          <p className="muted small">Une tâche ne se répète pas encore : c’est devenu un événement.</p>
+        )}
         {repeating && until >= (date || '') && (
           <p className="muted small">{repeatDates(date, repeat, until).length} fois au programme, de la première date au {until.split('-').reverse().join('.')}.</p>
         )}
