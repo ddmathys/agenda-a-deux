@@ -1,5 +1,5 @@
 import { addDays, keyOf } from './dates';
-import type { Owner } from './types';
+import type { Owner, Repeat } from './types';
 
 /**
  * Lecture « comme tu parles » d'une phrase en français :
@@ -15,6 +15,7 @@ export interface Parsed {
   end: string | null;
   owner: Owner | null;
   list: string | null;
+  repeat: Repeat;
 }
 
 interface PersonRef {
@@ -50,9 +51,20 @@ export function parseQuick(text: string, me: string, people: PersonRef[], now = 
   let end: string | null = null;
   let date: string | null = null;
   let owner: Owner | null = null;
+  let repeat: Repeat = 'none';
 
   // Rappels : pas encore gérés, on les retire du titre.
   cut(/,?\s*rappel\b[^,.;]*/i);
+
+  // Répétition : « tous les jours », « chaque semaine », « tous les mardis »...
+  const rep = s.match(/\s(?:tous les|toutes les|chaque)\s+(jours?|semaines?|mois|lundis?|mardis?|mercredis?|jeudis?|vendredis?|samedis?|dimanches?)\b/i);
+  if (rep) {
+    const word = rep[1].toLowerCase().replace(/s$/, '');
+    repeat = word === 'jour' ? 'day' : word === 'moi' ? 'month' : 'week';
+    cut(new RegExp(escape(rep[0])));
+    // Pour « tous les mardis », on remet « mardi » : la lecture de la date s'en sert pour la première fois.
+    if (WEEKDAYS.includes(word)) s = ` ${word} ${s}`;
+  }
 
   // Plage horaire : « de 10h à 11h30 », « 14h-16h »
   const range = s.match(/\s(?:de\s+)?(\d{1,2})\s*[h:]\s*(\d{2})?\s*(?:-|–|à|a|jusqu'à)\s*(\d{1,2})\s*[h:]\s*(\d{2})?(?=[\s,.;!?])/i);
@@ -104,7 +116,8 @@ export function parseQuick(text: string, me: string, people: PersonRef[], now = 
       cut(new RegExp(escape(m[0])));
     }
   }
-  if (start && !date) date = keyOf(today);
+  // Une heure ou une répétition sans date : c'est pour aujourd'hui.
+  if ((start || repeat !== 'none') && !date) date = keyOf(today);
 
   // Pour qui
   if ((m = s.match(/\s(?:pour|avec)\s+(nous deux|nous|tous les deux|moi)\b/i))) {
@@ -137,7 +150,8 @@ export function parseQuick(text: string, me: string, people: PersonRef[], now = 
     }
   }
 
-  const kind: Parsed['kind'] = end || EVENT_WORDS.test(raw) ? 'event' : 'task';
+  // Ce qui se répète dans l'agenda est un rendez-vous (les tâches ne se répètent pas encore).
+  const kind: Parsed['kind'] = end || repeat !== 'none' || EVENT_WORDS.test(raw) ? 'event' : 'task';
 
   const title = s
     .replace(/\s+/g, ' ')
@@ -154,6 +168,7 @@ export function parseQuick(text: string, me: string, people: PersonRef[], now = 
     end: end ?? (kind === 'event' && start ? plusHour(start) : null),
     owner,
     list,
+    repeat,
   };
 }
 

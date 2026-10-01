@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { todayKey } from '../dates';
-import { addEvent, addTask, deleteEvent, deleteTask, updateEvent, updateTask } from '../data';
-import { calendarToken, createCal, deleteCal, updateCal } from '../gcal';
+import {
+  addEvent, addEventSeries, addTask, deleteEvent, deleteEvents, deleteTask, updateEvent, updateEvents, updateTask,
+} from '../data';
+import { calendarToken, createCal, deleteCal, recurrenceRule, updateCal } from '../gcal';
 import { parseQuick } from '../parse';
+import { defaultUntil, MAX_DATES, REPEAT_CHOICES, repeatDates, repeatLabel } from '../repeat';
 import { ownerChoices, partnerUid, toneOf } from '../tones';
-import type { EventItem, Household, Task } from '../types';
+import type { EventItem, Household, Repeat, Task } from '../types';
 import { Icon } from '../ui';
 
 export type SheetMode = { kind: 'new' } | { kind: 'task'; task: Task } | { kind: 'event'; ev: EventItem };
@@ -12,6 +15,7 @@ export type SheetMode = { kind: 'new' } | { kind: 'task'; task: Task } | { kind:
 interface Props {
   h: Household;
   me: string;
+  events: EventItem[];
   mode: SheetMode;
   onClose: () => void;
 }
@@ -28,7 +32,7 @@ const Speech: SpeechCtor | undefined =
   (window as unknown as { SpeechRecognition?: SpeechCtor }).SpeechRecognition ??
   (window as unknown as { webkitSpeechRecognition?: SpeechCtor }).webkitSpeechRecognition;
 
-export function AddSheet({ h, me, mode, onClose }: Props) {
+export function AddSheet({ h, me, events, mode, onClose }: Props) {
   const isNew = mode.kind === 'new';
   const task = mode.kind === 'task' ? mode.task : null;
   const ev = mode.kind === 'event' ? mode.ev : null;
@@ -42,6 +46,12 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
   const [place, setPlace] = useState(ev?.place ?? '');
   const [owner, setOwner] = useState<string>(task?.owner ?? ev?.owner ?? me);
   const [list, setList] = useState(task?.list ?? h.lists[0]?.id ?? 'maison');
+  const [repeat, setRepeat] = useState<Repeat>('none');
+  const [until, setUntil] = useState('');
+  const [untilTouched, setUntilTouched] = useState(false);
+  // Un événement répété donne une fiche par date, toutes reliées : on choisit
+  // si une retouche vaut pour cette fois-là ou pour toute la série.
+  const [scope, setScope] = useState<'one' | 'all'>('one');
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState('');
@@ -49,6 +59,10 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
   // Un événement vit dans le Google Agenda de celui qui l'a créé : seul lui peut le synchroniser.
   const calMine = !ev?.gcalOwner || ev.gcalOwner === me;
   const [toCal, setToCal] = useState(ev ? !!ev.gcalId : true);
+  const series = ev?.seriesId ? events.filter((x) => x.seriesId === ev.seriesId) : [];
+  const inSeries = series.length > 0;
+  const wholeSeries = inSeries && scope === 'all';
+  const repeating = isNew && kind === 'event' && repeat !== 'none';
   const recRef = useRef<InstanceType<SpeechCtor> | null>(null);
   const firstRef = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
 
@@ -62,6 +76,10 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    if (repeat !== 'none' && !untilTouched) setUntil(defaultUntil(date || todayKey(), repeat));
+  }, [date, repeat, untilTouched]);
+
   const people = h.members.map((uid) => ({ uid, name: h.people[uid]?.name ?? '' }));
 
   const applyText = (value: string) => {
@@ -74,6 +92,7 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
     setEnd(p.end ?? '');
     if (p.owner) setOwner(p.owner);
     if (p.list && h.lists.some((l) => l.id === p.list)) setList(p.list);
+    setRepeat(p.repeat);
   };
 
   const dictate = () => {
@@ -103,12 +122,25 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
       setError('Un événement a besoin d’une date.');
       return;
     }
+    let dates: string[] = [];
+    if (repeating) {
+      if (!until || until < date) {
+        setError('Choisis une fin de répétition après la première date.');
+        return;
+      }
+      dates = repeatDates(date, repeat, until);
+      if (dates.length > MAX_DATES) {
+        setError(`Ça fait plus de ${MAX_DATES} fois : rapproche la fin de la répétition.`);
+        return;
+      }
+    }
     setBusy(true);
     setError('');
 
     // Le jeton Google se demande avant tout autre await, sinon la popup est bloquée.
-    const ownCalEvent = !!ev?.gcalId && ev.gcalOwner === me;
-    const needCal = (kind === 'event' && toCal && calMine) || ownCalEvent;
+    // Une série reste telle quelle dans Google Agenda : on n'y touche qu'à la création et à la suppression.
+    const ownCalEvent = !!ev?.gcalId && !ev.seriesId && ev.gcalOwner === me;
+    const needCal = (kind === 'event' && toCal && calMine && !inSeries) || ownCalEvent;
     let token: string | null = null;
     let calFailed = false;
     if (needCal) {
@@ -122,6 +154,39 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
     try {
       if (kind === 'event') {
         const data = { title: t, date, start: start || null, end: (start && end) || null, place: place.trim(), owner };
+        if (wholeSeries) {
+          // La date reste propre à chaque occurrence : le reste change partout.
+          const { date: _keep, ...shared } = data;
+          await updateEvents(h.id, series.map((x) => x.id), shared);
+          onClose();
+          return;
+        }
+        if (repeating) {
+          let gcal: Partial<EventItem> = {};
+          if (token) {
+            const partner = partnerUid(h, me);
+            const partnerEmail = partner ? h.people[partner]?.email : undefined;
+            try {
+              const gcalId = await createCal(token, {
+                ...data,
+                attendees: partnerEmail && owner !== me ? [partnerEmail] : [],
+                recurrence: recurrenceRule(repeat, until, !!start),
+              });
+              gcal = { gcalId, gcalOwner: me, gcalSeries: true };
+            } catch {
+              calFailed = true;
+            }
+          }
+          if (task) await deleteTask(h.id, task.id);
+          await addEventSeries(h.id, me, { ...data, repeat, ...gcal }, dates);
+          if (!calFailed) {
+            onClose();
+            return;
+          }
+          setNotice('Les dates sont dans l’agenda de l’app, mais Google Agenda n’a pas pu être mis à jour.');
+          setBusy(false);
+          return;
+        }
         let gcal: { gcalId: string | null; gcalOwner: string | null } | null = null;
         if (token && calMine) {
           const partner = partnerUid(h, me);
@@ -167,22 +232,29 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
   const remove = async () => {
     setBusy(true);
     let calFailed = false;
-    if (ev?.gcalId && ev.gcalOwner === me) {
+    // Côté Google, une série est un seul événement récurrent : on ne l'enlève que si
+    // on supprime toute la série (ou sa dernière date restante).
+    const lastOfSeries = inSeries && series.length === 1;
+    const killCal = !!ev?.gcalId && ev.gcalOwner === me && (!ev.seriesId || wholeSeries || lastOfSeries);
+    if (killCal) {
       try {
-        await deleteCal(await calendarToken(), ev.gcalId);
+        await deleteCal(await calendarToken(), ev!.gcalId!);
       } catch {
         calFailed = true;
       }
     }
     if (task) await deleteTask(h.id, task.id);
-    if (ev) await deleteEvent(h.id, ev.id);
+    if (ev) {
+      if (wholeSeries) await deleteEvents(h.id, series.map((x) => x.id));
+      else await deleteEvent(h.id, ev.id);
+    }
     if (calFailed) {
       setNotice('Supprimé de l’app, mais pas de Google Agenda : supprime-le là-bas à la main.');
       setBusy(false);
     } else onClose();
   };
 
-  const heading = isNew ? 'Ajout rapide' : kind === 'event' ? 'Événement' : 'Tâche';
+  const heading = isNew ? 'Ajout rapide' : inSeries ? 'Événement répété' : kind === 'event' ? 'Événement' : 'Tâche';
 
   return (
     <div className="sheet-wrap" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
@@ -222,10 +294,24 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
           </div>
         )}
 
-        <div className="segmented" role="group" aria-label="Type">
-          <button type="button" className={kind === 'task' ? 'on' : ''} onClick={() => setKind('task')} aria-pressed={kind === 'task'}>Tâche</button>
-          <button type="button" className={kind === 'event' ? 'on' : ''} onClick={() => setKind('event')} aria-pressed={kind === 'event'}>Événement</button>
-        </div>
+        {!inSeries && (
+          <div className="segmented" role="group" aria-label="Type">
+            <button type="button" className={kind === 'task' ? 'on' : ''} onClick={() => { setKind('task'); setRepeat('none'); }} aria-pressed={kind === 'task'}>Tâche</button>
+            <button type="button" className={kind === 'event' ? 'on' : ''} onClick={() => setKind('event')} aria-pressed={kind === 'event'}>Événement</button>
+          </div>
+        )}
+
+        {inSeries && (
+          <div className="col gap6">
+            <span className="field-label" id="scope-label">
+              {repeatLabel(ev!.repeat ?? 'none', null) || 'Se répète'} · {series.length} dates
+            </span>
+            <div className="segmented" role="group" aria-labelledby="scope-label">
+              <button type="button" className={scope === 'one' ? 'on' : ''} onClick={() => setScope('one')} aria-pressed={scope === 'one'}>Cette fois</button>
+              <button type="button" className={scope === 'all' ? 'on' : ''} onClick={() => setScope('all')} aria-pressed={scope === 'all'}>Toutes les fois</button>
+            </div>
+          </div>
+        )}
 
         <div className="fields">
           <label className="field">
@@ -234,7 +320,13 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
           </label>
           <label className="field">
             <span className="field-name">Quand</span>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={isNew ? todayKey() : undefined} />
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              min={isNew ? todayKey() : undefined}
+              disabled={wholeSeries}
+            />
           </label>
           <div className="field">
             <span className="field-name">Heure</span>
@@ -254,7 +346,32 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
               <input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Lieu (facultatif)" />
             </label>
           )}
+          {isNew && kind === 'event' && (
+            <label className="field">
+              <span className="field-name">Répéter</span>
+              <select value={repeat} onChange={(e) => setRepeat(e.target.value as Repeat)}>
+                {REPEAT_CHOICES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </label>
+          )}
+          {repeating && (
+            <label className="field">
+              <span className="field-name">Jusqu’au</span>
+              <input
+                type="date"
+                value={until}
+                min={date || todayKey()}
+                onChange={(e) => {
+                  setUntil(e.target.value);
+                  setUntilTouched(true);
+                }}
+              />
+            </label>
+          )}
         </div>
+        {repeating && until >= (date || '') && (
+          <p className="muted small">{repeatDates(date, repeat, until).length} fois au programme, de la première date au {until.split('-').reverse().join('.')}.</p>
+        )}
 
         <div className="col gap6">
           <span className="field-label" id="for-label">Pour</span>
@@ -270,7 +387,15 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
           </div>
         </div>
 
-        {kind === 'event' && (
+        {kind === 'event' && inSeries && (
+          <p className="muted small">
+            {ev!.gcalId && ev!.gcalOwner === me
+              ? 'La série est aussi dans ton Google Agenda. Les retouches faites ici n’y sont pas renvoyées ; si tu supprimes toutes les fois, elle en part aussi.'
+              : 'Cette série n’est pas dans Google Agenda.'}
+          </p>
+        )}
+
+        {kind === 'event' && !inSeries && (
           calMine ? (
             <label className="toggle-row">
               <span className="grow">Mettre dans mon Google Agenda</span>
@@ -291,11 +416,19 @@ export function AddSheet({ h, me, mode, onClose }: Props) {
         ) : (
         <div className="col gap8 push-bottom">
           <button type="submit" className="btn-dark" disabled={busy}>
-            {isNew ? (kind === 'task' ? 'Ajouter la tâche' : 'Ajouter à l’agenda') : 'Enregistrer'}
+            {isNew
+              ? kind === 'task'
+                ? 'Ajouter la tâche'
+                : repeating
+                  ? `Ajouter les ${repeatDates(date || todayKey(), repeat, until || defaultUntil(date || todayKey(), repeat)).length} dates`
+                  : 'Ajouter à l’agenda'
+              : wholeSeries ? 'Enregistrer pour toutes les fois' : 'Enregistrer'}
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           </button>
           {!isNew && (
-            <button type="button" className="btn-ghost danger" onClick={remove} disabled={busy}>Supprimer</button>
+            <button type="button" className="btn-ghost danger" onClick={remove} disabled={busy}>
+              {wholeSeries ? `Supprimer les ${series.length} dates` : 'Supprimer'}
+            </button>
           )}
         </div>
         )}

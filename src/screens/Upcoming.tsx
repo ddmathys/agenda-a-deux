@@ -3,7 +3,7 @@ import { addDays, dayGroupTitle, fromKey, isoWeek, keyOf, mondayOf, shortDate, t
 import { toggleTask } from '../data';
 import { toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
-import { Avatar, Check, Empty, Icon } from '../ui';
+import { Avatar, Check, Empty, Icon, RepeatMark } from '../ui';
 
 interface Props {
   h: Household;
@@ -99,7 +99,10 @@ export function Upcoming({ h, events, tasks, onEditTask, onEditEvent }: Props) {
                   </span>
                   <span className="row grow min0 gap10 center ev-body">
                     <span className="col grow min0 gap2">
-                      <span className="ev-title">{e.title}</span>
+                      <span className="ev-title row gap6 center">
+                        <span className="ell">{e.title}</span>
+                        {e.seriesId && <RepeatMark />}
+                      </span>
                       {e.place && <span className="ev-meta row gap4 center">{Icon.pin}{e.place}</span>}
                     </span>
                     <Avatar h={h} owner={e.owner} size={28} soft />

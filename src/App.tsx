@@ -46,6 +46,7 @@ function Shell({ h, user }: { h: Household; user: User }) {
           key={sheet.kind === 'new' ? 'new' : sheet.kind === 'task' ? sheet.task.id : sheet.ev.id}
           h={h}
           me={me}
+          events={events}
           mode={sheet}
           onClose={() => setSheet(null)}
         />

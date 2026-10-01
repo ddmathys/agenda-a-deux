@@ -1,6 +1,7 @@
 import { GoogleAuthProvider, linkWithPopup, reauthenticateWithPopup, type UserCredential } from 'firebase/auth';
 import { addDays, fromKey, keyOf } from './dates';
 import { auth } from './firebase';
+import type { Repeat } from './types';
 
 /**
  * Envoi des événements dans le Google Agenda de la personne qui les crée.
@@ -58,6 +59,16 @@ export interface CalInput {
   end: string | null;
   place: string;
   attendees: string[];
+  recurrence?: string[];
+}
+
+/** Règle de répétition Google : un seul événement récurrent plutôt qu'une centaine de copies. */
+export function recurrenceRule(repeat: Repeat, until: string, timed: boolean): string[] | undefined {
+  if (repeat === 'none') return undefined;
+  const freq = repeat === 'day' ? 'DAILY' : repeat === 'week' ? 'WEEKLY' : 'MONTHLY';
+  const end = until.replace(/-/g, '');
+  // Pour un événement avec heure, Google veut une fin en UTC ; pour un jour entier, une date.
+  return [`RRULE:FREQ=${freq};UNTIL=${timed ? `${end}T235959Z` : end}`];
 }
 
 function body(e: CalInput) {
@@ -72,6 +83,7 @@ function body(e: CalInput) {
     summary: e.title,
     location: e.place || undefined,
     attendees: e.attendees.map((email) => ({ email })),
+    recurrence: e.recurrence,
     ...when,
   };
 }

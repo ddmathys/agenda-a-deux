@@ -3,7 +3,7 @@ import { longLabel, todayKey } from '../dates';
 import { addTask, toggleTask } from '../data';
 import { ownerChoices, partnerUid, toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
-import { Avatar, Check, DueChip, Empty, Icon, type Tab } from '../ui';
+import { Avatar, Check, DueChip, Empty, Icon, RepeatMark, type Tab } from '../ui';
 
 interface Props {
   h: Household;
@@ -97,7 +97,10 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
               <div className="time-col">{e.start ?? 'Jour'}</div>
               <button className="ev-card" style={{ background: t.s }} onClick={() => onEditEvent(e)}>
                 <span className="col grow min0 gap2">
-                  <span className="ev-title">{e.title}</span>
+                  <span className="ev-title row gap6 center">
+                    <span className="ell">{e.title}</span>
+                    {e.seriesId && <RepeatMark />}
+                  </span>
                   <span className="ev-meta">{[e.end && `jusqu’à ${e.end}`, e.place].filter(Boolean).join(' · ') || t.name}</span>
                 </span>
                 <Avatar h={h} owner={e.owner} />

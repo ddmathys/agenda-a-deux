@@ -1,6 +1,9 @@
 /** Propriétaire d'un élément : l'uid d'un des deux membres, ou « both » pour « Nous ». */
 export type Owner = string;
 
+/** Répétition d'un événement : une seule fois, chaque jour, chaque semaine ou chaque mois. */
+export type Repeat = 'none' | 'day' | 'week' | 'month';
+
 export interface Person {
   name: string;
   slot: 0 | 1;
@@ -30,8 +33,11 @@ export interface EventItem {
   end: string | null;
   place: string;
   owner: Owner;
+  repeat?: Repeat; // pour mémoire : comment la série a été créée
+  seriesId?: string | null; // même valeur sur toutes les dates d'une série
   gcalId?: string | null; // id dans le Google Agenda de gcalOwner
   gcalOwner?: string | null;
+  gcalSeries?: boolean; // gcalId désigne un événement récurrent Google (toute la série)
 }
 
 export interface Task {

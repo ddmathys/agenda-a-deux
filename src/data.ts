@@ -4,7 +4,7 @@ import {
   signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, updateProfile, type User,
 } from 'firebase/auth';
 import {
-  addDoc, arrayUnion, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc,
+  addDoc, arrayUnion, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { todayKey } from './dates';
@@ -123,6 +123,30 @@ export const updateEvent = (hid: string, id: string, e: Partial<EventInput>) =>
   updateDoc(doc(db, 'households', hid, 'events', id), e);
 
 export const deleteEvent = (hid: string, id: string) => deleteDoc(doc(db, 'households', hid, 'events', id));
+
+/** Un événement qui se répète : une fiche par date, toutes reliées par seriesId. */
+export async function addEventSeries(hid: string, uid: string, e: EventInput, dates: string[]) {
+  const events = collection(db, 'households', hid, 'events');
+  const seriesId = doc(events).id;
+  const batch = writeBatch(db);
+  for (const date of dates) {
+    batch.set(doc(events), { ...e, date, seriesId, createdBy: uid, createdAt: serverTimestamp() });
+  }
+  await batch.commit();
+}
+
+/** Même retouche sur toutes les dates d'une série. */
+export async function updateEvents(hid: string, ids: string[], e: Partial<EventInput>) {
+  const batch = writeBatch(db);
+  for (const id of ids) batch.update(doc(db, 'households', hid, 'events', id), e);
+  await batch.commit();
+}
+
+export async function deleteEvents(hid: string, ids: string[]) {
+  const batch = writeBatch(db);
+  for (const id of ids) batch.delete(doc(db, 'households', hid, 'events', id));
+  await batch.commit();
+}
 
 export const addTask = (hid: string, uid: string, t: TaskInput) =>
   addDoc(collection(db, 'households', hid, 'tasks'), { ...t, done: false, doneOn: null, createdBy: uid, createdAt: serverTimestamp() });
