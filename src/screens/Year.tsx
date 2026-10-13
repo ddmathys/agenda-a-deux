@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { ageOn, stayDays } from '../birthday';
-import { MONTHS_SHORT, cap, shortDate, todayKey } from '../dates';
+import { MONTHS, shortDate, todayKey } from '../dates';
 import { ownerChoices, toneOf } from '../tones';
 import type { EventItem, Household } from '../types';
 import { Avatar, Icon } from '../ui';
+import { VacationWidget } from '../widgets';
 
 interface Props {
   h: Household;
@@ -13,12 +14,10 @@ interface Props {
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
-const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
-const BDAY = '#FF7A1A';
 
 /**
- * Le mural de l'année : une ligne par mois, une case par jour.
- * Les vacances colorent les cases (couleur de la personne), les anniversaires y font un point.
+ * Le mural de l'année : douze petits calendriers, les vacances et les anniversaires
+ * en couleur, puis le compteur de vacances et les listes.
  */
 export function Year({ h, me, events, onEditEvent }: Props) {
   const today = todayKey();
@@ -40,22 +39,26 @@ export function Year({ h, me, events, onEditEvent }: Props) {
     .sort((a, b) => a.k.localeCompare(b.k));
   const bdayDays = new Set(bdays.map((b) => b.k));
 
-  const cell = (month: number, day: number) => {
-    const d = new Date(year, month, day);
-    if (d.getMonth() !== month) return <span key={day} className="wall-cell none" />;
-    const k = `${year}-${pad(month + 1)}-${pad(day)}`;
-    const owners = [...new Set(stays.filter((s) => s.date <= k && k <= s.dateEnd!).map((s) => s.owner))];
-    const tones = owners.map((o) => toneOf(h, o).c);
-    const weekend = d.getDay() === 0 || d.getDay() === 6;
-    const bg = tones.length === 0 ? undefined : tones.length === 1 ? tones[0] : `linear-gradient(${tones[0]} 50%, ${tones[1]} 50%)`;
+  // Un petit calendrier par mois : vacances en couleur de la personne, anniversaires en rond jaune.
+  const month = (m: number) => {
+    const blanks = (new Date(year, m, 1).getDay() + 6) % 7;
+    const len = new Date(year, m + 1, 0).getDate();
+    const cur = `${year}-${pad(m + 1)}` === today.slice(0, 7);
     return (
-      <span
-        key={day}
-        className={`wall-cell${weekend ? ' we' : ''}${k === today ? ' now' : ''}`}
-        style={bg ? { background: bg } : undefined}
-      >
-        {bdayDays.has(k) && <span className="wall-dot" style={{ background: tones.length ? '#FFFFFF' : BDAY }} />}
-      </span>
+      <div key={m} className={cur ? 'mini cur' : 'mini'}>
+        <span className="mini-name">{MONTHS[m].charAt(0).toUpperCase() + MONTHS[m].slice(1)}</span>
+        <div className="mini-grid">
+          {Array.from({ length: blanks }, (_, i) => <span key={`b${i}`} />)}
+          {Array.from({ length: len }, (_, i) => {
+            const k = `${year}-${pad(m + 1)}-${pad(i + 1)}`;
+            const owners = [...new Set(stays.filter((s) => s.date <= k && k <= s.dateEnd!).map((s) => s.owner))];
+            const tones = owners.map((o) => toneOf(h, o).soft);
+            const bg = tones.length === 0 ? undefined : tones.length === 1 ? tones[0] : `linear-gradient(135deg, ${tones[0]} 50%, ${tones[1]} 50%)`;
+            const cls = `mini-d${bdayDays.has(k) ? ' bday' : ''}${k === today ? ' now' : ''}${bg ? ' on' : ''}`;
+            return <span key={k} className={cls} style={bg && !bdayDays.has(k) ? { background: bg } : undefined}>{i + 1}</span>;
+          })}
+        </div>
+      </div>
     );
   };
 
@@ -63,7 +66,7 @@ export function Year({ h, me, events, onEditEvent }: Props) {
     <div className="screen">
       <header className="page-head">
         <div className="col gap4">
-          <span className="kicker" style={{ color: '#7048E8' }}>Le mural</span>
+          <span className="kicker" style={{ color: '#5530C9' }}>Notre mural</span>
           <h1>{year}</h1>
         </div>
         <div className="row gap8">
@@ -72,24 +75,18 @@ export function Year({ h, me, events, onEditEvent }: Props) {
         </div>
       </header>
 
-      <section className="wall" aria-label={`Vacances et anniversaires ${year}`}>
-        <div className="wall-row wall-head" aria-hidden="true">
-          <span className="wall-m" />
-          {DAYS.map((d) => <span key={d} className="wall-n">{d === 1 || d % 5 === 0 ? d : ''}</span>)}
-        </div>
-        {MONTHS_SHORT.map((m, i) => (
-          <div key={m} className={`wall-row${`${year}-${pad(i + 1)}` === today.slice(0, 7) ? ' cur' : ''}`}>
-            <span className="wall-m">{cap(m.replace('.', ''))}</span>
-            {DAYS.map((d) => cell(i, d))}
-          </div>
+      <div className="wall-legend">
+        {ownerChoices(h, me).map((c) => (
+          <span key={c.id} className="row gap4 center"><span className="wall-key" style={{ background: toneOf(h, c.id).soft }} />{c.label}</span>
         ))}
-        <div className="wall-legend">
-          {ownerChoices(h, me).map((c) => (
-            <span key={c.id} className="row gap4 center"><span className="wall-key" style={{ background: toneOf(h, c.id).c }} />{c.label}</span>
-          ))}
-          <span className="row gap4 center"><span className="wall-key round" style={{ background: BDAY }} />Anniversaire</span>
-        </div>
+        <span className="row gap4 center"><span className="wall-key round" />Anniversaire</span>
+      </div>
+
+      <section className="minis" aria-label={`Vacances et anniversaires ${year}`}>
+        {Array.from({ length: 12 }, (_, m) => month(m))}
       </section>
+
+      <VacationWidget h={h} me={me} events={events} year={year} today={today} />
 
       <section className="col gap10">
         <div className="section-head"><h2>🏖️ Vacances</h2></div>
@@ -100,7 +97,7 @@ export function Year({ h, me, events, onEditEvent }: Props) {
           const t = toneOf(h, e.owner);
           return (
             <button key={e.id} className="ev-block" onClick={() => onEditEvent(e)}>
-              <span className="ev-time" style={{ background: t.c }}>
+              <span className="ev-time" style={{ background: t.c, color: t.on }}>
                 <span className="ev-start">{stayDays(e)}</span>
                 <span className="ev-end">{stayDays(e) === 1 ? 'jour' : 'jours'}</span>
               </span>

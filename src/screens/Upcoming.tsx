@@ -94,7 +94,7 @@ export function Upcoming({ h, events, tasks, onEditTask, onEditEvent }: Props) {
               const t = toneOf(h, e.owner);
               return (
                 <button key={e.id} className="ev-block" onClick={() => onEditEvent(e)}>
-                  <span className="ev-time" style={{ background: t.c }}>
+                  <span className="ev-time" style={{ background: t.c, color: t.on }}>
                     <span className="ev-start">{e.start ?? 'Jour'}</span>
                     {e.end && <span className="ev-end">{e.end}</span>}
                   </span>

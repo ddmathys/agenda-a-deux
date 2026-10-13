@@ -12,7 +12,7 @@ export const Icon = {
   cal: <svg width="24" height="24" viewBox="0 0 24 24" {...stroke}><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>,
   plus: <svg width="26" height="26" viewBox="0 0 24 24" {...stroke} strokeWidth={2.6}><path d="M12 5v14M5 12h14" /></svg>,
   plusSm: <svg width="22" height="22" viewBox="0 0 24 24" {...stroke} strokeWidth={2.2}><path d="M12 5v14M5 12h14" /></svg>,
-  check: <svg width="14" height="14" viewBox="0 0 24 24" {...stroke} stroke="#FFFFFF" strokeWidth={3.2}><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>,
+  check: <svg width="14" height="14" viewBox="0 0 24 24" {...stroke} strokeWidth={3.2}><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>,
   left: <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} strokeWidth={2.4}><path d="M15 5l-7 7 7 7" /></svg>,
   right: <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} strokeWidth={2.4}><path d="M9 5l7 7-7 7" /></svg>,
   close: <svg width="18" height="18" viewBox="0 0 24 24" {...stroke} strokeWidth={2.6}><path d="M6 6l12 12M18 6L6 18" /></svg>,
@@ -60,7 +60,7 @@ export function Avatar({ h, owner, size = 30, soft = false }: { h: Household; ow
     <span
       className="avatar"
       title={t.name}
-      style={{ width: size, height: size, fontSize: size * 0.43, background: soft ? t.s : t.c, color: soft ? t.t : '#FFFFFF' }}
+      style={{ width: size, height: size, fontSize: size * 0.43, background: soft ? t.s : t.c, color: soft ? t.t : t.on }}
     >
       {t.initial}
     </span>
@@ -71,7 +71,7 @@ export function Check({ h, task, onToggle, square = false }: { h: Household; tas
   const t = toneOf(h, task.owner);
   return (
     <button className="check" onClick={onToggle} aria-label={`${task.done ? 'Rouvrir' : 'Terminer'} : ${task.title}`}>
-      <span className="box" style={{ borderColor: t.c, background: task.done ? t.c : '#FFFFFF', borderRadius: square ? 7 : '50%' }}>
+      <span className="box" style={{ borderColor: t.c, background: task.done ? t.c : '#FFFFFF', color: t.on, borderRadius: square ? 7 : '50%' }}>
         {task.done && Icon.check}
       </span>
     </button>

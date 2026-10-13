@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { stayDays } from '../birthday';
 import { todayKey } from '../dates';
 import {
@@ -9,6 +9,16 @@ import { defaultUntil, MAX_DATES, REPEAT_CHOICES, repeatDates, repeatLabel } fro
 import { ownerChoices, partnerUid, toneOf } from '../tones';
 import type { EventItem, Household, Repeat, Task } from '../types';
 import { Icon } from '../ui';
+
+type TileId = 'task' | 'event' | 'vac' | 'bday';
+
+const tileStroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+const TILES: { id: TileId; label: string; icon: ReactNode }[] = [
+  { id: 'task', label: 'Tâche', icon: <svg width="20" height="20" viewBox="0 0 24 24" {...tileStroke} strokeWidth={2.6}><path d="M5 12.5l4.5 4.5L19 7.5" /></svg> },
+  { id: 'event', label: 'Rendez-vous', icon: <svg width="20" height="20" viewBox="0 0 24 24" {...tileStroke}><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></svg> },
+  { id: 'vac', label: 'Vacances', icon: <svg width="20" height="20" viewBox="0 0 24 24" {...tileStroke}><circle cx="12" cy="9" r="4" /><path d="M3 20c3-2 6-2 9 0s6 2 9 0M12 2v1.5M4.5 9H6M18 9h1.5" /></svg> },
+  { id: 'bday', label: 'Anniv.', icon: <svg width="20" height="20" viewBox="0 0 24 24" {...tileStroke}><path d="M4 20h16M5 20v-7h14v7M8 13v-3M12 13v-3M16 13v-3M8 6.5c0-1 1-2 0-3M12 6.5c0-1 1-2 0-3M16 6.5c0-1 1-2 0-3" /></svg> },
+];
 
 export type SheetMode = { kind: 'new' } | { kind: 'task'; task: Task } | { kind: 'event'; ev: EventItem };
 
@@ -69,6 +79,20 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
   useEffect(() => {
     if (repeat !== 'none' && !untilTouched) setUntil(defaultUntil(date || todayKey(), repeat));
   }, [date, repeat, untilTouched]);
+
+  // La tuile choisie en haut : tâche, rendez-vous, vacances ou anniversaire.
+  const tile: TileId = birthday ? 'bday' : vacation ? 'vac' : kind === 'event' ? 'event' : 'task';
+  const pickTile = (id: TileId) => {
+    if (id === 'vac') return pickVacation(true);
+    if (id === 'bday') return pickBirthday(true);
+    setVacation(false);
+    setBirthday(false);
+    setKind(id);
+    if (id === 'task') {
+      setRepeat('none');
+      setFlipped(false);
+    }
+  };
 
   const pickVacation = (on: boolean) => {
     setVacation(on);
@@ -259,20 +283,16 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
         </div>
 
         {!inSeries && (
-          <div className="kind-boxes" role="group" aria-label="Genre">
-            <button type="button" className={vacation ? 'kind-box on' : 'kind-box'} aria-pressed={vacation} onClick={() => pickVacation(!vacation)}>
-              <span className="kind-check" aria-hidden="true">{vacation && Icon.check}</span>🏖️ Vacances
-            </button>
-            <button type="button" className={birthday ? 'kind-box on' : 'kind-box'} aria-pressed={birthday} onClick={() => pickBirthday(!birthday)}>
-              <span className="kind-check" aria-hidden="true">{birthday && Icon.check}</span>🎂 Anniversaire
-            </button>
-          </div>
-        )}
-
-        {!inSeries && !birthday && !vacation && (
-          <div className="segmented" role="group" aria-label="Type">
-            <button type="button" className={kind === 'task' ? 'on' : ''} onClick={() => { setKind('task'); setRepeat('none'); setBirthday(false); setVacation(false); setFlipped(false); }} aria-pressed={kind === 'task'}>Tâche</button>
-            <button type="button" className={kind === 'event' ? 'on' : ''} onClick={() => setKind('event')} aria-pressed={kind === 'event'}>Événement</button>
+          <div className="tiles" role="group" aria-label="Que veux-tu ajouter ?">
+            {TILES.map((t) => {
+              const on = t.id === tile;
+              return (
+                <button type="button" key={t.id} className={`tile ${t.id}${on ? ' on' : ''}`} aria-pressed={on} onClick={() => pickTile(t.id)}>
+                  <span className="tile-bubble" aria-hidden="true">{t.icon}</span>
+                  {t.label}
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -401,11 +421,13 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
 
         <div className="col gap6">
           <span className="field-label" id="for-label">Pour</span>
-          <div className="segmented" role="group" aria-labelledby="for-label">
+          <div className="segmented who" role="group" aria-labelledby="for-label">
             {ownerChoices(h, me).map((c) => {
               const on = c.id === owner;
+              const t = toneOf(h, c.id);
               return (
-                <button type="button" key={c.id} className={on ? 'on' : ''} style={on ? { color: toneOf(h, c.id).t } : undefined} onClick={() => setOwner(c.id)} aria-pressed={on}>
+                <button type="button" key={c.id} className={on ? 'on' : ''} style={on ? { color: t.t, background: t.s, borderColor: t.c } : undefined} onClick={() => setOwner(c.id)} aria-pressed={on}>
+                  <span className="who-dot" style={{ background: t.c, color: t.on }}>{t.initial}</span>
                   {c.label}
                 </button>
               );
@@ -447,7 +469,11 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
                 ? 'Ajouter la tâche'
                 : repeating
                   ? `Ajouter les ${repeatDates(date || todayKey(), repeat, until || defaultUntil(date || todayKey(), repeat)).length} dates`
-                  : 'Ajouter à l’agenda'
+                  : birthday
+                    ? 'Ajouter l’anniversaire'
+                    : vacation
+                      ? 'Ajouter les vacances'
+                      : 'Ajouter à l’agenda'
               : wholeSeries ? 'Enregistrer pour toutes les fois' : 'Enregistrer'}
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           </button>

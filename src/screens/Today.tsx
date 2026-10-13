@@ -1,10 +1,19 @@
 import { useState, type FormEvent } from 'react';
-import { longLabel, todayKey } from '../dates';
+import { addDays, cap, DAYS, fromKey, keyOf, mondayOf, MONTHS, shortDate, todayKey } from '../dates';
 import { ageOn, eventsOn, stayOn } from '../birthday';
 import { addTask, toggleTask } from '../data';
 import { ownerChoices, partnerUid, toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
 import { Avatar, BirthdayMark, Check, DueChip, Empty, Icon, RepeatMark, VacationMark, type Tab } from '../ui';
+import { Countdowns, VacationWidget } from '../widgets';
+
+const LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+/** « Mardi 13 octobre » */
+const longDate = (k: string) => {
+  const d = fromKey(k);
+  return `${cap(DAYS[d.getDay()])} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+};
 
 interface Props {
   h: Household;
@@ -22,10 +31,14 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
   const today = todayKey();
   const keep = (o: string) => filter === 'all' || o === filter;
 
-  const todays = tasks
-    .filter((t) => t.due && t.due <= today && (!t.done || t.doneOn === today))
-    .sort((a, b) => Number(a.done) - Number(b.done) || (a.due ?? '').localeCompare(b.due ?? '') || (a.time ?? '99').localeCompare(b.time ?? '99'));
-  const doneCount = todays.filter((t) => t.done).length;
+  const monday = mondayOf(new Date());
+  const week = Array.from({ length: 7 }, (_, i) => keyOf(addDays(monday, i)));
+  const ownersOn = (k: string) => {
+    const set = new Set<string>();
+    eventsOn(events, k).forEach((e) => set.add(e.owner));
+    tasks.filter((t) => t.due === k && !t.done).forEach((t) => set.add(t.owner));
+    return [...set].slice(0, 3);
+  };
   const evs = eventsOn(events, today).sort((a, b) => (a.start ?? '').localeCompare(b.start ?? ''));
 
   const shownEvents = evs.filter((e) => keep(e.owner));
@@ -46,29 +59,33 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
 
   return (
     <div className="screen">
-      <section className="hero">
-        <div className="hero-sun" />
-        <div className="hero-dot" />
-        <div className="row between rel">
-          <span className="hero-hello">Bonjour {h.people[me]?.name}</span>
-          <div className="row">
-            <span className="hero-av"><Avatar h={h} owner={me} size={34} /></span>
-            {partner && <span className="hero-av overlap"><Avatar h={h} owner={partner} size={34} /></span>}
-          </div>
+      <header className="hello">
+        <span className="deco-a" aria-hidden="true" />
+        <span className="deco-b" aria-hidden="true" />
+        <div className="col gap2 rel">
+          <span className="hello-date">{longDate(today)}</span>
+          <h1 className="hello-title">Bonjour<br />{h.people[me]?.name}</h1>
         </div>
-        <h1 className="hero-title rel">{longLabel(today)}</h1>
-        <div className="rel col gap8">
-          <div className="row between hero-stats">
-            <span>{todays.length ? `${doneCount} sur ${todays.length} tâches faites` : 'Aucune tâche pour aujourd’hui'}</span>
-            <span>{evs.length} rendez-vous</span>
-          </div>
-          {todays.length > 0 && (
-            <div className="segs" aria-hidden="true">
-              {todays.map((t, i) => <div key={t.id} className={i < doneCount ? 'seg on' : 'seg'} />)}
-            </div>
-          )}
+        <div className="row rel hello-avs">
+          <Avatar h={h} owner={me} size={40} />
+          {partner && <span className="overlap"><Avatar h={h} owner={partner} size={40} /></span>}
         </div>
-      </section>
+      </header>
+
+      <div className="strip" role="group" aria-label="Cette semaine">
+        {week.map((k, i) => (
+          <button key={k} className={k === today ? 'strip-day on' : k < today ? 'strip-day past' : 'strip-day'} onClick={() => onTab('upcoming')} aria-label={`Voir le ${shortDate(k)}`}>
+            <span className="strip-l">{LETTERS[i]}</span>
+            <span className="strip-n">{fromKey(k).getDate()}</span>
+            <span className="dots">
+              {ownersOn(k).map((o) => <span key={o} className="dot" style={{ background: toneOf(h, o).c }} />)}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <Countdowns events={events} today={today} onOpen={onEditEvent} />
+      <VacationWidget h={h} me={me} events={events} year={Number(today.slice(0, 4))} today={today} onClick={() => onTab('year')} />
 
       {!partner && <Invite code={h.id} />}
 
@@ -88,15 +105,15 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
       <section className="col gap10">
         <div className="section-head">
           <h2>Au programme</h2>
-          <button className="link" onClick={() => onTab('upcoming')}>Tout voir</button>
+          <button className="link" onClick={() => onTab('upcoming')}>Toute la semaine</button>
         </div>
         {shownEvents.length === 0 && <Empty>Rien au programme aujourd’hui.</Empty>}
         {shownEvents.map((e) => {
           const t = toneOf(h, e.owner);
           return (
-            <div key={e.id} className="row gap10 center">
-              <div className="time-col">{e.start ?? 'Jour'}</div>
+            <div key={e.id} className="row">
               <button className="ev-card" style={{ background: t.s }} onClick={() => onEditEvent(e)}>
+                <span className="ev-hour">{e.start ?? 'Jour'}</span>
                 <span className="col grow min0 gap2">
                   <span className="ev-title row gap6 center">
                     <span className="ell">{e.title}</span>

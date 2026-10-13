@@ -44,3 +44,22 @@ export function ageOn(e: EventItem, k: string = todayKey()): string {
   if (n <= 0) return '';
   return n === 1 ? '1 an' : `${n} ans`;
 }
+
+/** Le prochain anniversaire à partir du jour k (aujourd'hui compris), avec sa date cette année-là. */
+export function nextBirthday(events: EventItem[], k: string = todayKey()): { e: EventItem; on: string } | undefined {
+  const y = Number(k.slice(0, 4));
+  let best: { e: EventItem; on: string } | undefined;
+  for (const e of events) {
+    if (!e.birthday) continue;
+    for (const year of [y, y + 1]) {
+      let md = e.date.slice(5);
+      if (md === '02-29' && new Date(year, 1, 29).getMonth() !== 1) md = '02-28';
+      const on = `${year}-${md}`;
+      if (on >= k && on >= e.date) {
+        if (!best || on < best.on) best = { e, on };
+        break;
+      }
+    }
+  }
+  return best;
+}

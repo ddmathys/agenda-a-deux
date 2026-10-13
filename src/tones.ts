@@ -4,16 +4,18 @@ export interface Tone {
   c: string; // couleur pleine
   s: string; // fond doux
   t: string; // texte sur fond doux
-  soft: string; // accent sur fond sombre
+  soft: string; // version plus claire (mural)
+  on: string; // texte sur la couleur pleine
   initial: string;
   name: string;
 }
 
+// Palette « Sorbet » : corail, turquoise et lilas, avec un texte foncé sur la couleur pleine.
 const SLOT_TONES = [
-  { c: '#3451E6', s: '#E7EBFF', t: '#2238B8', soft: '#7B92FF' },
-  { c: '#D92B45', s: '#FFE3E7', t: '#A81D33', soft: '#FF7A8C' },
+  { c: '#FF8A5B', s: '#FFE4D8', t: '#9A3412', soft: '#FF9F7A', on: '#3A1400' },
+  { c: '#2EC4B6', s: '#D5F5F1', t: '#0B5F57', soft: '#5ED6CA', on: '#00302B' },
 ];
-const BOTH = { c: '#7048E8', s: '#EEE8FF', t: '#5530C9', soft: '#A98BFF' };
+const BOTH = { c: '#9B7BFF', s: '#ECE5FF', t: '#5530C9', soft: '#B9A2FF', on: '#1E0F55' };
 
 export function toneOf(h: Household, owner: Owner): Tone {
   const p = owner !== 'both' ? h.people[owner] : undefined;
