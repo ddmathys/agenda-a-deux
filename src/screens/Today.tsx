@@ -88,7 +88,7 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
         ))}
       </div>
 
-      <Countdowns h={h} me={me} events={events} today={today} onOpen={onEditEvent} onYear={() => onTab('year')} onBirthdays={() => onTab('birthdays')} />
+      <Countdowns h={h} me={me} events={events} today={today} onOpen={onEditEvent} onYear={() => onTab('year')} onBirthdays={() => onTab('birthdays')} onVacations={() => onTab('vacations')} />
 
       <div className="pills" role="group" aria-label="Filtrer par personne">
         {pills.map((p) => {

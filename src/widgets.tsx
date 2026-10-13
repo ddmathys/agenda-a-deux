@@ -8,8 +8,8 @@ import { daysUntil, nextVacation, vacationCount } from './vacation';
  * Les deux comptes à rebours côte à côte : prochain anniversaire et prochaines vacances,
  * puis, en petit dessous, le cumul de jours de vacances de l'année.
  */
-export function Countdowns({ h, me, events, today, onOpen, onYear, onBirthdays }: {
-  h: Household; me: string; events: EventItem[]; today: string; onOpen: (e: EventItem) => void; onYear: () => void; onBirthdays: () => void;
+export function Countdowns({ h, me, events, today, onYear, onBirthdays, onVacations }: {
+  h: Household; me: string; events: EventItem[]; today: string; onOpen: (e: EventItem) => void; onYear: () => void; onBirthdays: () => void; onVacations: () => void;
 }) {
   const vac = nextVacation(events, today);
   const bday = nextBirthday(events, today);
@@ -35,21 +35,21 @@ export function Countdowns({ h, me, events, today, onOpen, onYear, onBirthdays }
           </button>
         )}
         {vac ? (
-          <button className="count-card lilac" onClick={() => onOpen(vac)}>
+          <button className="count-card lilac" onClick={onVacations}>
             <span className="count-kicker">Vacances</span>
             <span className="count-big">{vacIn <= 0 ? 'En cours' : `J-${vacIn}`}</span>
             <span className="count-title ell">{vac.title}</span>
             <span className="count-sub">{shortDate(vac.date)} → {shortDate(vac.dateEnd!)} · {stayDays(vac)} j</span>
           </button>
         ) : (
-          <div className="count-card lilac">
+          <button className="count-card lilac" onClick={onVacations}>
             <span className="count-kicker">Vacances</span>
             <span className="count-big">—</span>
             <span className="count-sub">Rien de prévu : ajoute-les avec le +</span>
-          </div>
+          </button>
         )}
       </div>
-      <button className="vac-line" onClick={onYear}>
+      <button className="vac-line" onClick={onVacations}>
         <span className="pill-dot" style={{ background: toneOf(h, me).c }} />
         Vacances {year} : <b>{mine.taken} {mine.taken > 1 ? 'jours pris' : 'jour pris'}</b>
         {mine.planned > 0 && <> · {mine.planned} prévu{mine.planned > 1 ? 's' : ''}</>}
