@@ -4,7 +4,7 @@ import { MONTHS, shortDate, todayKey } from '../dates';
 import { ownerChoices, toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
 import { MonthDetail } from './MonthDetail';
-import { Avatar, Icon } from '../ui';
+import { Avatar, Icon, scrollToTop } from '../ui';
 import { VacationWidget } from '../widgets';
 
 interface Props {
@@ -50,7 +50,7 @@ export function Year({ h, me, events, tasks, onEditEvent, onEditTask }: Props) {
     const len = new Date(year, m + 1, 0).getDate();
     const cur = `${year}-${pad(m + 1)}` === today.slice(0, 7);
     return (
-      <button key={m} className={cur ? 'mini cur' : 'mini'} onClick={() => { setOpen(m); window.scrollTo({ top: 0 }); }} aria-label={`Voir ${MONTHS[m]} en détail`}>
+      <button key={m} className={cur ? 'mini cur' : 'mini'} onClick={() => { setOpen(m); scrollToTop(); }} aria-label={`Voir ${MONTHS[m]} en détail`}>
         <span className="mini-name">{MONTHS[m].charAt(0).toUpperCase() + MONTHS[m].slice(1)}</span>
         <div className="mini-grid">
           {Array.from({ length: blanks }, (_, i) => <span key={`b${i}`} />)}

@@ -62,7 +62,21 @@ h1, h2 { margin: 0; }
 .plain { border: none; background: transparent; padding: 0; }
 
 /* Cadre */
-.app { max-width: 480px; margin: 0 auto; min-height: 100dvh; }
+/*
+ * Cadre fixe à la taille exacte du téléphone : la page elle-même ne bouge jamais
+ * (ni sur le côté, ni en rebond), seul le contenu défile à l'intérieur du cadre.
+ * La barre du bas, fixe, reste donc toujours visible.
+ */
+html { background: var(--bg); height: 100%; overflow: hidden; overscroll-behavior: none; }
+body { height: 100%; overflow: hidden; overscroll-behavior: none; touch-action: manipulation; }
+#root { height: 100%; }
+.app {
+  position: fixed; inset: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; background: var(--bg);
+}
+.app > .screen { max-width: 480px; margin: 0 auto; min-width: 0; }
+.screen * { min-width: 0; }
+.hello-title { overflow-wrap: anywhere; }
 .screen {
   padding: calc(16px + env(safe-area-inset-top)) 16px calc(120px + env(safe-area-inset-bottom));
   display: flex; flex-direction: column; gap: 18px;
@@ -290,7 +304,8 @@ h1, h2 { margin: 0; }
 
 /* Accueil */
 .welcome {
-  max-width: 440px; margin: 0 auto; min-height: 100dvh;
+  position: fixed; inset: 0; overflow-y: auto; overflow-x: hidden;
+  max-width: 440px; margin: 0 auto;
   padding: calc(40px + env(safe-area-inset-top)) 20px 40px; display: flex; flex-direction: column; gap: 18px;
 }
 .brand { display: flex; flex-direction: column; gap: 18px; }
@@ -572,10 +587,6 @@ h1, h2, .sheet-title, .page-head h1, .section-head h2, .h18, .h19, .h20 { font-f
 .push-later { min-height: 30px; border: none; background: none; color: #0B5F57; font-size: 12px; font-weight: 700; }
 .push-note { margin: 0; font-size: 13px; font-weight: 700; color: var(--muted2); background: var(--white); padding: 8px 12px; border-radius: 14px; }
 
-/* Écran stable : pas de défilement de côté, pas de rebond, pas de zoom au double toucher */
-html, body { overflow-x: hidden; overflow-x: clip; overscroll-behavior: none; }
-body { touch-action: manipulation; }
-.app { overflow-x: clip; }
 .hello { overflow: visible; }
 .deco-a { right: -70px; }
 .deco-b { animation: none; }

@@ -9,7 +9,7 @@ import { Birthdays } from './screens/Birthdays';
 import { Vacations } from './screens/Vacations';
 import { Login, Setup } from './screens/Welcome';
 import type { EventItem, Household, Task } from './types';
-import { Nav, type Tab } from './ui';
+import { Nav, scrollToTop, type Tab } from './ui';
 
 export function App() {
   const user = useAuth();
@@ -36,7 +36,7 @@ function Shell({ h, user }: { h: Household; user: User }) {
 
   const go = (t: Tab) => {
     setTab(t);
-    window.scrollTo({ top: 0 });
+    scrollToTop();
   };
 
   return (
