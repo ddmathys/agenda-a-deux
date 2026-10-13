@@ -38,6 +38,7 @@ export interface EventItem {
   gcalId?: string | null; // id dans le Google Agenda de gcalOwner
   gcalOwner?: string | null;
   gcalSeries?: boolean; // gcalId désigne un événement récurrent Google (toute la série)
+  birthday?: boolean; // anniversaire : revient chaque année au même jour (date = naissance)
 }
 
 export interface Task {

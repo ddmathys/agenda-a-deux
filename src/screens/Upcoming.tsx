@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { addDays, dayGroupTitle, fromKey, isoWeek, keyOf, mondayOf, shortDate, todayKey } from '../dates';
+import { ageOn, eventsOn } from '../birthday';
 import { toggleTask } from '../data';
 import { toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
-import { Avatar, Check, Empty, Icon, RepeatMark } from '../ui';
+import { Avatar, BirthdayMark, Check, Empty, Icon, RepeatMark } from '../ui';
 
 interface Props {
   h: Household;
@@ -22,7 +23,7 @@ export function Upcoming({ h, events, tasks, onEditTask, onEditEvent }: Props) {
 
   const ownersOn = (k: string) => {
     const set = new Set<string>();
-    events.filter((e) => e.date === k).forEach((e) => set.add(e.owner));
+    eventsOn(events, k).forEach((e) => set.add(e.owner));
     tasks.filter((t) => t.due === k && !t.done).forEach((t) => set.add(t.owner));
     return [...set].slice(0, 3);
   };
@@ -40,7 +41,7 @@ export function Upcoming({ h, events, tasks, onEditTask, onEditEvent }: Props) {
   const groups = Array.from({ length: 7 }, (_, i) => keyOf(addDays(fromKey(sel), i)))
     .map((k) => ({
       k,
-      evs: events.filter((e) => e.date === k).sort((a, b) => (a.start ?? '').localeCompare(b.start ?? '')),
+      evs: eventsOn(events, k).sort((a, b) => (a.start ?? '').localeCompare(b.start ?? '')),
       tks: tasks.filter((t) => t.due === k),
     }))
     .filter((g) => g.evs.length + g.tks.length > 0);
@@ -102,7 +103,9 @@ export function Upcoming({ h, events, tasks, onEditTask, onEditEvent }: Props) {
                       <span className="ev-title row gap6 center">
                         <span className="ell">{e.title}</span>
                         {e.seriesId && <RepeatMark />}
+                        {e.birthday && <BirthdayMark />}
                       </span>
+                      {e.birthday && ageOn(e, g.k) && <span className="ev-meta">{ageOn(e, g.k)}</span>}
                       {e.place && <span className="ev-meta row gap4 center">{Icon.pin}{e.place}</span>}
                     </span>
                     <Avatar h={h} owner={e.owner} size={28} soft />

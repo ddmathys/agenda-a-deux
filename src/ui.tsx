@@ -40,6 +40,10 @@ export function Nav({ tab, onTab, onAdd }: { tab: Tab; onTab: (t: Tab) => void; 
 }
 
 /** Petit repère sur un événement qui se répète. */
+export function BirthdayMark() {
+  return <span className="rep" title="Anniversaire, chaque année" aria-label="Anniversaire">🎂</span>;
+}
+
 export function RepeatMark() {
   return <span className="rep" title="Se répète">{Icon.repeat}</span>;
 }

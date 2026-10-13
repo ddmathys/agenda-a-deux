@@ -71,6 +71,9 @@ export function recurrenceRule(repeat: Repeat, until: string, timed: boolean): s
   return [`RRULE:FREQ=${freq};UNTIL=${timed ? `${end}T235959Z` : end}`];
 }
 
+/** Anniversaire : un événement Google « toute la journée » qui revient chaque année, sans fin. */
+export const YEARLY = ['RRULE:FREQ=YEARLY'];
+
 function body(e: CalInput) {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const when = e.start

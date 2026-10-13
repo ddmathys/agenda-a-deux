@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { longLabel, todayKey } from '../dates';
+import { ageOn, eventsOn } from '../birthday';
 import { addTask, toggleTask } from '../data';
 import { ownerChoices, partnerUid, toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
-import { Avatar, Check, DueChip, Empty, Icon, RepeatMark, type Tab } from '../ui';
+import { Avatar, BirthdayMark, Check, DueChip, Empty, Icon, RepeatMark, type Tab } from '../ui';
 
 interface Props {
   h: Household;
@@ -25,7 +26,7 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
     .filter((t) => t.due && t.due <= today && (!t.done || t.doneOn === today))
     .sort((a, b) => Number(a.done) - Number(b.done) || (a.due ?? '').localeCompare(b.due ?? '') || (a.time ?? '99').localeCompare(b.time ?? '99'));
   const doneCount = todays.filter((t) => t.done).length;
-  const evs = events.filter((e) => e.date === today).sort((a, b) => (a.start ?? '').localeCompare(b.start ?? ''));
+  const evs = eventsOn(events, today).sort((a, b) => (a.start ?? '').localeCompare(b.start ?? ''));
 
   const shownEvents = evs.filter((e) => keep(e.owner));
   // Toutes les tâches ouvertes (+ celles cochées aujourd'hui) : en retard / du jour, puis datées, puis sans date.
@@ -100,8 +101,9 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
                   <span className="ev-title row gap6 center">
                     <span className="ell">{e.title}</span>
                     {e.seriesId && <RepeatMark />}
+                    {e.birthday && <BirthdayMark />}
                   </span>
-                  <span className="ev-meta">{[e.end && `jusqu’à ${e.end}`, e.place].filter(Boolean).join(' · ') || t.name}</span>
+                  <span className="ev-meta">{[e.birthday && ageOn(e, today), e.end && `jusqu’à ${e.end}`, e.place].filter(Boolean).join(' · ') || t.name}</span>
                 </span>
                 <Avatar h={h} owner={e.owner} />
               </button>

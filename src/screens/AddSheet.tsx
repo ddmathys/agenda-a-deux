@@ -3,7 +3,7 @@ import { todayKey } from '../dates';
 import {
   addEvent, addEventSeries, addTask, deleteEvent, deleteEvents, deleteTask, updateEvent, updateEvents, updateTask,
 } from '../data';
-import { calendarToken, createCal, deleteCal, recurrenceRule, updateCal } from '../gcal';
+import { calendarToken, createCal, deleteCal, recurrenceRule, updateCal, YEARLY } from '../gcal';
 import { parseQuick } from '../parse';
 import { defaultUntil, MAX_DATES, REPEAT_CHOICES, repeatDates, repeatLabel } from '../repeat';
 import { ownerChoices, partnerUid, toneOf } from '../tones';
@@ -47,6 +47,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
   const [owner, setOwner] = useState<string>(task?.owner ?? ev?.owner ?? me);
   const [list, setList] = useState(task?.list ?? h.lists[0]?.id ?? 'maison');
   const [repeat, setRepeat] = useState<Repeat>('none');
+  const [birthday, setBirthday] = useState(!!ev?.birthday);
   const [until, setUntil] = useState('');
   const [untilTouched, setUntilTouched] = useState(false);
   const [flipped, setFlipped] = useState(false);
@@ -63,7 +64,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
   const series = ev?.seriesId ? events.filter((x) => x.seriesId === ev.seriesId) : [];
   const inSeries = series.length > 0;
   const wholeSeries = inSeries && scope === 'all';
-  const repeating = isNew && kind === 'event' && repeat !== 'none';
+  const repeating = isNew && kind === 'event' && !birthday && repeat !== 'none';
   const recRef = useRef<InstanceType<SpeechCtor> | null>(null);
   const firstRef = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
 
@@ -94,6 +95,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
     if (p.owner) setOwner(p.owner);
     if (p.list && h.lists.some((l) => l.id === p.list)) setList(p.list);
     setRepeat(p.repeat);
+    setBirthday(p.birthday);
   };
 
   const dictate = () => {
@@ -154,7 +156,10 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
 
     try {
       if (kind === 'event') {
-        const data = { title: t, date, start: start || null, end: (start && end) || null, place: place.trim(), owner };
+        // Un anniversaire dure toute la journée : ni heure ni lieu.
+        const data = birthday
+          ? { title: t, date, start: null, end: null, place: '', owner, birthday: true }
+          : { title: t, date, start: start || null, end: (start && end) || null, place: place.trim(), owner, birthday: false };
         if (wholeSeries) {
           // La date reste propre à chaque occurrence : le reste change partout.
           const { date: _keep, ...shared } = data;
@@ -192,7 +197,9 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
         if (token && calMine) {
           const partner = partnerUid(h, me);
           const partnerEmail = partner ? h.people[partner]?.email : undefined;
-          const input = { ...data, attendees: partnerEmail && owner !== me ? [partnerEmail] : [] };
+          // Côté Google : un événement annuel ; si on retire le drapeau, on enlève la règle.
+          const recurrence = birthday ? YEARLY : ev?.birthday ? [] : undefined;
+          const input = { ...data, attendees: partnerEmail && owner !== me ? [partnerEmail] : [], recurrence };
           try {
             if (toCal && ev?.gcalId) await updateCal(token, ev.gcalId, input);
             else if (toCal) gcal = { gcalId: await createCal(token, input), gcalOwner: me };
@@ -255,7 +262,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
     } else onClose();
   };
 
-  const heading = isNew ? 'Ajout rapide' : inSeries ? 'Événement répété' : kind === 'event' ? 'Événement' : 'Tâche';
+  const heading = isNew ? 'Ajout rapide' : ev?.birthday ? 'Anniversaire' : inSeries ? 'Événement répété' : kind === 'event' ? 'Événement' : 'Tâche';
 
   return (
     <div className="sheet-wrap" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
@@ -297,7 +304,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
 
         {!inSeries && (
           <div className="segmented" role="group" aria-label="Type">
-            <button type="button" className={kind === 'task' ? 'on' : ''} onClick={() => { setKind('task'); setRepeat('none'); setFlipped(false); }} aria-pressed={kind === 'task'}>Tâche</button>
+            <button type="button" className={kind === 'task' ? 'on' : ''} onClick={() => { setKind('task'); setRepeat('none'); setBirthday(false); setFlipped(false); }} aria-pressed={kind === 'task'}>Tâche</button>
             <button type="button" className={kind === 'event' ? 'on' : ''} onClick={() => setKind('event')} aria-pressed={kind === 'event'}>Événement</button>
           </div>
         )}
@@ -320,15 +327,16 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
             <input ref={isNew ? undefined : firstRef} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Quoi ?" />
           </label>
           <label className="field">
-            <span className="field-name">Quand</span>
+            <span className="field-name">{birthday ? 'Naissance' : 'Quand'}</span>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              min={isNew ? todayKey() : undefined}
+              min={isNew && !birthday ? todayKey() : undefined}
               disabled={wholeSeries}
             />
           </label>
+          {!birthday && (
           <div className="field">
             <span className="field-name">Heure</span>
             <span className="row gap6 center">
@@ -341,13 +349,14 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
               )}
             </span>
           </div>
-          {kind === 'event' && (
+          )}
+          {kind === 'event' && !birthday && (
             <label className="field">
               <span className="field-name">Où</span>
               <input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Lieu (facultatif)" />
             </label>
           )}
-          {isNew && (
+          {isNew && !birthday && (
             <label className="field">
               <span className="field-name">Répéter</span>
               <select
@@ -382,6 +391,25 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
             </label>
           )}
         </div>
+        {!inSeries && (
+          <label className="toggle-row">
+            <span className="grow">🎂 Anniversaire, chaque année</span>
+            <input
+              type="checkbox"
+              checked={birthday}
+              onChange={(e) => {
+                setBirthday(e.target.checked);
+                if (e.target.checked) {
+                  setKind('event');
+                  setRepeat('none');
+                }
+              }}
+            />
+          </label>
+        )}
+        {birthday && (
+          <p className="muted small">Revient tous les ans au même jour. Avec l’année de naissance, l’app affiche l’âge.</p>
+        )}
         {flipped && repeating && (
           <p className="muted small">Une tâche ne se répète pas encore : c’est devenu un événement.</p>
         )}

@@ -16,6 +16,7 @@ export interface Parsed {
   owner: Owner | null;
   list: string | null;
   repeat: Repeat;
+  birthday: boolean;
 }
 
 interface PersonRef {
@@ -151,7 +152,9 @@ export function parseQuick(text: string, me: string, people: PersonRef[], now = 
   }
 
   // Ce qui se répète dans l'agenda est un rendez-vous (les tâches ne se répètent pas encore).
-  const kind: Parsed['kind'] = end || repeat !== 'none' || EVENT_WORDS.test(raw) ? 'event' : 'task';
+  // « Anniversaire de Léa le 12 mars » : revient chaque année.
+  const birthday = /^\s*(anniv|anniversaire)\b/i.test(raw);
+  const kind: Parsed['kind'] = birthday || end || repeat !== 'none' || EVENT_WORDS.test(raw) ? 'event' : 'task';
 
   const title = s
     .replace(/\s+/g, ' ')
@@ -168,7 +171,8 @@ export function parseQuick(text: string, me: string, people: PersonRef[], now = 
     end: end ?? (kind === 'event' && start ? plusHour(start) : null),
     owner,
     list,
-    repeat,
+    repeat: birthday ? 'none' : repeat,
+    birthday,
   };
 }
 
