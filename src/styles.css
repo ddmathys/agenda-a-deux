@@ -18,7 +18,7 @@
   --shadow: 0 8px 24px rgba(155, 123, 255, 0.12);
   --display: 'Fredoka', 'Nunito', system-ui, sans-serif;
   --body: 'Nunito', system-ui, sans-serif;
-  color-scheme: light;
+  color-scheme: only light;
 }
 
 * { box-sizing: border-box; }
