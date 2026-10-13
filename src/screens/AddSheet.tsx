@@ -5,7 +5,6 @@ import {
   addEvent, addEventSeries, addTask, deleteEvent, deleteEvents, deleteTask, updateEvent, updateEvents, updateTask,
 } from '../data';
 import { calendarToken, createCal, deleteCal, recurrenceRule, updateCal, YEARLY } from '../gcal';
-import { parseQuick } from '../parse';
 import { defaultUntil, MAX_DATES, REPEAT_CHOICES, repeatDates, repeatLabel } from '../repeat';
 import { ownerChoices, partnerUid, toneOf } from '../tones';
 import type { EventItem, Household, Repeat, Task } from '../types';
@@ -21,24 +20,11 @@ interface Props {
   onClose: () => void;
 }
 
-type SpeechCtor = new () => {
-  lang: string;
-  interimResults: boolean;
-  onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void;
-  onend: () => void;
-  start: () => void;
-  stop: () => void;
-};
-const Speech: SpeechCtor | undefined =
-  (window as unknown as { SpeechRecognition?: SpeechCtor }).SpeechRecognition ??
-  (window as unknown as { webkitSpeechRecognition?: SpeechCtor }).webkitSpeechRecognition;
-
 export function AddSheet({ h, me, events, mode, onClose }: Props) {
   const isNew = mode.kind === 'new';
   const task = mode.kind === 'task' ? mode.task : null;
   const ev = mode.kind === 'event' ? mode.ev : null;
 
-  const [text, setText] = useState('');
   const [kind, setKind] = useState<'task' | 'event'>(ev ? 'event' : 'task');
   const [title, setTitle] = useState(task?.title ?? ev?.title ?? '');
   const [date, setDate] = useState(task?.due ?? ev?.date ?? '');
@@ -49,6 +35,8 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
   const [list, setList] = useState(task?.list ?? h.lists[0]?.id ?? 'maison');
   const [repeat, setRepeat] = useState<Repeat>('none');
   const [birthday, setBirthday] = useState(!!ev?.birthday);
+  // Date de naissance tapée au clavier (« 12.03.2019 ») : plus rapide que remonter le calendrier.
+  const [bdayText, setBdayText] = useState(ev?.birthday ? ev.date.split('-').reverse().join('.') : '');
   const [vacation, setVacation] = useState(!!ev?.vacation);
   const [dateEnd, setDateEnd] = useState(ev?.dateEnd ?? '');
   const [until, setUntil] = useState('');
@@ -58,7 +46,6 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
   // si une retouche vaut pour cette fois-là ou pour toute la série.
   const [scope, setScope] = useState<'one' | 'all'>('one');
   const [busy, setBusy] = useState(false);
-  const [listening, setListening] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   // Un événement vit dans le Google Agenda de celui qui l'a créé : seul lui peut le synchroniser.
@@ -68,8 +55,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
   const inSeries = series.length > 0;
   const wholeSeries = inSeries && scope === 'all';
   const repeating = isNew && kind === 'event' && !birthday && !vacation && repeat !== 'none';
-  const recRef = useRef<InstanceType<SpeechCtor> | null>(null);
-  const firstRef = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
+  const firstRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     firstRef.current?.focus();
@@ -77,7 +63,6 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = prev;
-      recRef.current?.stop();
     };
   }, []);
 
@@ -85,38 +70,22 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
     if (repeat !== 'none' && !untilTouched) setUntil(defaultUntil(date || todayKey(), repeat));
   }, [date, repeat, untilTouched]);
 
-  const people = h.members.map((uid) => ({ uid, name: h.people[uid]?.name ?? '' }));
-
-  const applyText = (value: string) => {
-    setText(value);
-    const p = parseQuick(value, me, people);
-    setKind(p.kind);
-    setTitle(p.title);
-    setDate(p.date ?? '');
-    setStart(p.start ?? '');
-    setEnd(p.end ?? '');
-    if (p.owner) setOwner(p.owner);
-    if (p.list && h.lists.some((l) => l.id === p.list)) setList(p.list);
-    setRepeat(p.repeat);
-    setBirthday(p.birthday);
-    setVacation(p.vacation);
-    setDateEnd(p.dateEnd ?? '');
+  const pickVacation = (on: boolean) => {
+    setVacation(on);
+    if (!on) return;
+    setKind('event');
+    setRepeat('none');
+    setBirthday(false);
+    if (!dateEnd || dateEnd < date) setDateEnd(date);
   };
 
-  const dictate = () => {
-    if (!Speech) return;
-    if (listening) {
-      recRef.current?.stop();
-      return;
-    }
-    const rec = new Speech();
-    rec.lang = 'fr-FR';
-    rec.interimResults = true;
-    rec.onresult = (e) => applyText(Array.from(e.results, (r) => r[0].transcript).join(' '));
-    rec.onend = () => setListening(false);
-    recRef.current = rec;
-    setListening(true);
-    rec.start();
+  const pickBirthday = (on: boolean) => {
+    setBirthday(on);
+    if (!on) return;
+    setKind('event');
+    setRepeat('none');
+    setVacation(false);
+    setDate(birthKey(bdayText));
   };
 
   const submit = async (e: FormEvent) => {
@@ -124,6 +93,10 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
     const t = title.trim();
     if (!t) {
       setError('Donne un titre.');
+      return;
+    }
+    if (birthday && !date) {
+      setError('Écris la date comme 12.03.2019 (ou 12.03 sans l’année).');
       return;
     }
     if (kind === 'event' && !date) {
@@ -273,7 +246,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
     } else onClose();
   };
 
-  const heading = isNew ? 'Ajout rapide' : ev?.birthday ? 'Anniversaire' : ev?.vacation ? 'Vacances' : inSeries ? 'Événement répété' : kind === 'event' ? 'Événement' : 'Tâche';
+  const heading = isNew ? 'Ajouter' : ev?.birthday ? 'Anniversaire' : ev?.vacation ? 'Vacances' : inSeries ? 'Événement répété' : kind === 'event' ? 'Événement' : 'Tâche';
 
   return (
     <div className="sheet-wrap" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
@@ -285,35 +258,18 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
           <button type="button" className="round-btn" aria-label="Fermer" onClick={onClose}>{Icon.close}</button>
         </div>
 
-        {isNew && (
-          <div className="col gap6">
-            <label htmlFor="quick" className="field-label">Écris comme tu parles</label>
-            <div className="rel">
-              <textarea
-                id="quick"
-                ref={firstRef}
-                rows={2}
-                className="quick"
-                value={text}
-                onChange={(e) => applyText(e.target.value)}
-                placeholder="Appeler la crèche mardi 10h pour Karin"
-              />
-              {Speech && (
-                <button type="button" className={listening ? 'mic on' : 'mic'} aria-label={listening ? 'Arrêter la dictée' : 'Dicter'} onClick={dictate}>
-                  {Icon.mic}
-                </button>
-              )}
-            </div>
-            {text && (
-              <div className="understood">
-                <span className="spark">{Icon.spark}</span>
-                Compris automatiquement · vérifie avant d’ajouter
-              </div>
-            )}
+        {!inSeries && (
+          <div className="kind-boxes" role="group" aria-label="Genre">
+            <button type="button" className={vacation ? 'kind-box on' : 'kind-box'} aria-pressed={vacation} onClick={() => pickVacation(!vacation)}>
+              <span className="kind-check" aria-hidden="true">{vacation && Icon.check}</span>🏖️ Vacances
+            </button>
+            <button type="button" className={birthday ? 'kind-box on' : 'kind-box'} aria-pressed={birthday} onClick={() => pickBirthday(!birthday)}>
+              <span className="kind-check" aria-hidden="true">{birthday && Icon.check}</span>🎂 Anniversaire
+            </button>
           </div>
         )}
 
-        {!inSeries && (
+        {!inSeries && !birthday && !vacation && (
           <div className="segmented" role="group" aria-label="Type">
             <button type="button" className={kind === 'task' ? 'on' : ''} onClick={() => { setKind('task'); setRepeat('none'); setBirthday(false); setVacation(false); setFlipped(false); }} aria-pressed={kind === 'task'}>Tâche</button>
             <button type="button" className={kind === 'event' ? 'on' : ''} onClick={() => setKind('event')} aria-pressed={kind === 'event'}>Événement</button>
@@ -335,10 +291,27 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
         <div className="fields">
           <label className="field">
             <span className="field-name">Titre</span>
-            <input ref={isNew ? undefined : firstRef} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Quoi ?" />
+            <input ref={firstRef} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={birthday ? 'Qui ? (ex. Léa)' : vacation ? 'Vacances à…' : 'Quoi ?'} />
           </label>
+          {birthday ? (
+            <label className="field">
+              <span className="field-name">Né·e le</span>
+              <input
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="JJ.MM.AAAA"
+                maxLength={10}
+                value={bdayText}
+                onChange={(e) => {
+                  const v = maskDate(e.target.value);
+                  setBdayText(v);
+                  setDate(birthKey(v));
+                }}
+              />
+            </label>
+          ) : (
           <label className="field">
-            <span className="field-name">{birthday ? 'Naissance' : vacation ? 'Du' : 'Quand'}</span>
+            <span className="field-name">{vacation ? 'Du' : 'Quand'}</span>
             <input
               type="date"
               value={date}
@@ -347,10 +320,11 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
                 // Le retour suit le départ s'il tombait avant.
                 if (vacation && e.target.value && (!dateEnd || dateEnd < e.target.value)) setDateEnd(e.target.value);
               }}
-              min={isNew && !birthday ? todayKey() : undefined}
+              min={isNew ? todayKey() : undefined}
               disabled={wholeSeries}
             />
           </label>
+          )}
           {vacation && (
             <label className="field">
               <span className="field-name">Au</span>
@@ -412,41 +386,6 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
             </label>
           )}
         </div>
-        {!inSeries && (
-          <label className="toggle-row">
-            <span className="grow">🏖️ Vacances, du… au…</span>
-            <input
-              type="checkbox"
-              checked={vacation}
-              onChange={(e) => {
-                setVacation(e.target.checked);
-                if (e.target.checked) {
-                  setKind('event');
-                  setRepeat('none');
-                  setBirthday(false);
-                  if (!dateEnd || dateEnd < date) setDateEnd(date);
-                }
-              }}
-            />
-          </label>
-        )}
-        {!inSeries && (
-          <label className="toggle-row">
-            <span className="grow">🎂 Anniversaire, chaque année</span>
-            <input
-              type="checkbox"
-              checked={birthday}
-              onChange={(e) => {
-                setBirthday(e.target.checked);
-                if (e.target.checked) {
-                  setKind('event');
-                  setRepeat('none');
-                  setVacation(false);
-                }
-              }}
-            />
-          </label>
-        )}
         {vacation && date && dateEnd >= date && (
           <p className="muted small">{stayDays({ date, dateEnd })} jours, visibles chaque jour dans l’agenda et sur le mural de l’année.</p>
         )}
@@ -522,4 +461,22 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
       </form>
     </div>
   );
+}
+
+/** « 12032019 » → « 12.03.2019 » au fil de la frappe. */
+function maskDate(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 8);
+  return [d.slice(0, 2), d.slice(2, 4), d.slice(4)].filter(Boolean).join('.');
+}
+
+/** « 12.03.2019 » → « 2019-03-12 » ; sans année (« 12.03 »), l'année en cours, sans âge affiché. */
+function birthKey(v: string): string {
+  const m = v.match(/^(\d{2})\.(\d{2})(?:\.(\d{2}|\d{4}))?$/);
+  if (!m) return '';
+  const now = new Date().getFullYear();
+  let y = m[3] ? Number(m[3]) : now;
+  if (m[3]?.length === 2) y += y + 2000 > now ? 1900 : 2000;
+  const d = new Date(y, Number(m[2]) - 1, Number(m[1]));
+  if (d.getDate() !== Number(m[1]) || d.getMonth() !== Number(m[2]) - 1 || y > now) return '';
+  return `${y}-${m[2]}-${m[1]}`;
 }
