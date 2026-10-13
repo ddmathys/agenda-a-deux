@@ -8,8 +8,8 @@ import { daysUntil, nextVacation, vacationCount } from './vacation';
  * Les deux comptes à rebours côte à côte : prochain anniversaire et prochaines vacances,
  * puis, en petit dessous, le cumul de jours de vacances de l'année.
  */
-export function Countdowns({ h, me, events, today, onOpen, onYear }: {
-  h: Household; me: string; events: EventItem[]; today: string; onOpen: (e: EventItem) => void; onYear: () => void;
+export function Countdowns({ h, me, events, today, onOpen, onYear, onBirthdays }: {
+  h: Household; me: string; events: EventItem[]; today: string; onOpen: (e: EventItem) => void; onYear: () => void; onBirthdays: () => void;
 }) {
   const vac = nextVacation(events, today);
   const bday = nextBirthday(events, today);
@@ -21,18 +21,18 @@ export function Countdowns({ h, me, events, today, onOpen, onYear }: {
     <div className="col gap8">
       <div className="count-grid">
         {bday ? (
-          <button className="count-card sun" onClick={() => onOpen(bday.e)}>
+          <button className="count-card sun" onClick={onBirthdays}>
             <span className="count-kicker">Anniversaire</span>
             <span className="count-big">{bdayIn === 0 ? 'Jour J' : `J-${bdayIn}`}</span>
             <span className="count-title ell">{[bday.e.title, ageOn(bday.e, bday.on)].filter(Boolean).join(' · ')}</span>
             <span className="count-sub">{DAYS[fromKey(bday.on).getDay()]} {shortDate(bday.on)}</span>
           </button>
         ) : (
-          <div className="count-card sun">
+          <button className="count-card sun" onClick={onBirthdays}>
             <span className="count-kicker">Anniversaire</span>
             <span className="count-big">—</span>
             <span className="count-sub">Aucun noté pour l’instant</span>
-          </div>
+          </button>
         )}
         {vac ? (
           <button className="count-card lilac" onClick={() => onOpen(vac)}>

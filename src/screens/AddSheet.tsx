@@ -20,7 +20,7 @@ const TILES: { id: TileId; label: string; icon: ReactNode }[] = [
   { id: 'bday', label: 'Anniv.', icon: <svg width="20" height="20" viewBox="0 0 24 24" {...tileStroke}><path d="M4 20h16M5 20v-7h14v7M8 13v-3M12 13v-3M16 13v-3M8 6.5c0-1 1-2 0-3M12 6.5c0-1 1-2 0-3M16 6.5c0-1 1-2 0-3" /></svg> },
 ];
 
-export type SheetMode = { kind: 'new' } | { kind: 'task'; task: Task } | { kind: 'event'; ev: EventItem };
+export type SheetMode = { kind: 'new'; preset?: 'bday' | 'vac' } | { kind: 'task'; task: Task } | { kind: 'event'; ev: EventItem };
 
 interface Props {
   h: Household;
@@ -35,7 +35,8 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
   const task = mode.kind === 'task' ? mode.task : null;
   const ev = mode.kind === 'event' ? mode.ev : null;
 
-  const [kind, setKind] = useState<'task' | 'event'>(ev ? 'event' : 'task');
+  const preset = mode.kind === 'new' ? mode.preset : undefined;
+  const [kind, setKind] = useState<'task' | 'event'>(ev || preset ? 'event' : 'task');
   const [title, setTitle] = useState(task?.title ?? ev?.title ?? '');
   const [date, setDate] = useState(task?.due ?? ev?.date ?? '');
   const [start, setStart] = useState(task?.time ?? ev?.start ?? '');
@@ -44,10 +45,10 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
   const [owner, setOwner] = useState<string>(task?.owner ?? ev?.owner ?? me);
   const [list, setList] = useState(task?.list ?? h.lists[0]?.id ?? 'maison');
   const [repeat, setRepeat] = useState<Repeat>('none');
-  const [birthday, setBirthday] = useState(!!ev?.birthday);
+  const [birthday, setBirthday] = useState(!!ev?.birthday || preset === 'bday');
   // Date de naissance tapée au clavier (« 12.03.2019 ») : plus rapide que remonter le calendrier.
   const [bdayText, setBdayText] = useState(ev?.birthday ? ev.date.split('-').reverse().join('.') : '');
-  const [vacation, setVacation] = useState(!!ev?.vacation);
+  const [vacation, setVacation] = useState(!!ev?.vacation || preset === 'vac');
   const [dateEnd, setDateEnd] = useState(ev?.dateEnd ?? '');
   const [until, setUntil] = useState('');
   const [untilTouched, setUntilTouched] = useState(false);

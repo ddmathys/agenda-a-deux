@@ -5,6 +5,7 @@ import { AddSheet, type SheetMode } from './screens/AddSheet';
 import { Today } from './screens/Today';
 import { Upcoming } from './screens/Upcoming';
 import { Year } from './screens/Year';
+import { Birthdays } from './screens/Birthdays';
 import { Login, Setup } from './screens/Welcome';
 import type { EventItem, Household, Task } from './types';
 import { Nav, type Tab } from './ui';
@@ -42,6 +43,9 @@ function Shell({ h, user }: { h: Household; user: User }) {
       {tab === 'today' && <Today h={h} me={me} events={events} tasks={tasks} onTab={go} {...edit} />}
       {tab === 'upcoming' && <Upcoming h={h} events={events} tasks={tasks} {...edit} />}
       {tab === 'year' && <Year h={h} me={me} events={events} tasks={tasks} {...edit} />}
+      {tab === 'birthdays' && (
+        <Birthdays h={h} events={events} onBack={() => go('today')} onAdd={() => setSheet({ kind: 'new', preset: 'bday' })} onEditEvent={edit.onEditEvent} />
+      )}
       <Nav tab={tab} onTab={go} onAdd={() => setSheet({ kind: 'new' })} />
       {sheet && (
         <AddSheet

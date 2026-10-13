@@ -3,7 +3,7 @@ import { dueLabel } from './dates';
 import { toneOf } from './tones';
 import type { Household, Task } from './types';
 
-export type Tab = 'today' | 'upcoming' | 'year';
+export type Tab = 'today' | 'upcoming' | 'year' | 'birthdays';
 
 const stroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
 
