@@ -571,3 +571,20 @@ h1, h2, .sheet-title, .page-head h1, .section-head h2, .h18, .h19, .h20 { font-f
 .push-on { min-height: 38px; padding: 0 14px; border: none; border-radius: 999px; background: var(--turq); color: #00302B; font-weight: 800; font-size: 13.5px; }
 .push-later { min-height: 30px; border: none; background: none; color: #0B5F57; font-size: 12px; font-weight: 700; }
 .push-note { margin: 0; font-size: 13px; font-weight: 700; color: var(--muted2); background: var(--white); padding: 8px 12px; border-radius: 14px; }
+
+/* Écran stable : pas de défilement de côté, pas de rebond, pas de zoom au double toucher */
+html, body { overflow-x: hidden; overflow-x: clip; overscroll-behavior: none; }
+body { touch-action: manipulation; }
+.app { overflow-x: clip; }
+.hello { overflow: visible; }
+.deco-a { right: -70px; }
+.deco-b { animation: none; }
+.tile, .tile.on { transition: none; transform: none; }
+.version { font-size: 10.5px; color: var(--muted); background: rgba(255, 255, 255, 0.7); }
+
+/* À venir : la bande des jours reste en haut pendant qu'on fait défiler */
+.screen > .strip.sticky {
+  position: sticky; top: 0; z-index: 5; margin: 0 -20px; padding: calc(8px + env(safe-area-inset-top)) 20px 10px;
+  background: var(--bg);
+}
+@media (max-width: 379px) { .screen > .strip.sticky { margin: 0 -16px; padding-left: 16px; padding-right: 16px; } }

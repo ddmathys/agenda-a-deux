@@ -105,7 +105,7 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
         <span className="deco-b" aria-hidden="true" />
         <div className="col gap2 rel">
           <span className="hello-date">{longDate(today)}</span>
-          <h1 className="hello-title">Bonjour<br />{h.people[me]?.name}</h1>
+          <h1 className="hello-title">{new Date().getHours() >= 18 || new Date().getHours() < 5 ? 'Bonsoir' : 'Bonjour'}<br />{h.people[me]?.name}</h1>
           <span className="version">{__APP_VERSION__}</span>
         </div>
         <div className="col rel hello-side">

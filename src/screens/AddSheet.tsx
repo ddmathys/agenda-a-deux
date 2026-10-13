@@ -84,7 +84,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
   const firstRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    firstRef.current?.focus();
+    if (isNew) firstRef.current?.focus();
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {

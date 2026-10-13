@@ -59,7 +59,7 @@ export function Upcoming({ h, events, tasks, onEditTask, onEditEvent }: Props) {
         </div>
       </header>
 
-      <div className="strip" role="group" aria-label="Jours de la semaine">
+      <div className="strip sticky" role="group" aria-label="Jours de la semaine">
         {week.map((k, i) => {
           const on = k === sel;
           return (

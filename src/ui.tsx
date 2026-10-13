@@ -71,7 +71,13 @@ export function Avatar({ h, owner, size = 30, soft = false }: { h: Household; ow
 export function Check({ h, task, onToggle, square = false }: { h: Household; task: Task; onToggle: () => void; square?: boolean }) {
   const t = toneOf(h, task.owner);
   return (
-    <button className="check" onClick={onToggle} aria-label={`${task.done ? 'Rouvrir' : 'Terminer'} : ${task.title}`}>
+    <button
+      className="check"
+      onClick={() => {
+        if (!task.done) navigator.vibrate?.(12);
+        onToggle();
+      }}
+      aria-label={`${task.done ? 'Rouvrir' : 'Terminer'} : ${task.title}`}>
       <span className="box" style={{ borderColor: t.c, background: task.done ? t.c : '#FFFFFF', color: t.on, borderRadius: square ? 7 : '50%' }}>
         {task.done && Icon.check}
       </span>
