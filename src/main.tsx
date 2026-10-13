@@ -10,6 +10,8 @@ registerSW({
   immediate: true,
   onRegisteredSW(_url, reg) {
     if (!reg) return;
+    // Vérifie tout de suite s'il existe une version plus récente que celle en cache.
+    reg.update().catch(() => undefined);
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') reg.update().catch(() => undefined);
     });

@@ -485,3 +485,4 @@ h1, h2, .sheet-title, .page-head h1, .section-head h2, .h18, .h19, .h20 { font-f
 .mini-d.now { box-shadow: inset 0 0 0 1.5px var(--ink); }
 @media (min-width: 400px) { .mini-d { height: 17px; font-size: 9.5px; } }
 .bday-date { color: #7A4A00; }
+.version { align-self: flex-start; margin-top: 6px; font-size: 11.5px; font-weight: 800; color: var(--purple); background: #ECE5FF; padding: 3px 9px; border-radius: 999px; }

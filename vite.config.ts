@@ -1,8 +1,15 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import pkg from './package.json';
+
+// Version affichée dans l'app : numéro du package + date et heure de la compilation.
+const now = new Date();
+const two = (n: number) => String(n).padStart(2, '0');
+const stamp = `${two(now.getDate())}.${two(now.getMonth() + 1)} ${two(now.getHours())}:${two(now.getMinutes())}`;
 
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(`v${pkg.version} · ${stamp}`) },
   plugins: [
     react(),
     VitePWA({

@@ -65,6 +65,7 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
         <div className="col gap2 rel">
           <span className="hello-date">{longDate(today)}</span>
           <h1 className="hello-title">Bonjour<br />{h.people[me]?.name}</h1>
+          <span className="version">{__APP_VERSION__}</span>
         </div>
         <div className="row rel hello-avs">
           <Avatar h={h} owner={me} size={40} />
