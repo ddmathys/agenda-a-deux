@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { addDays, dayGroupTitle, fromKey, isoWeek, keyOf, mondayOf, shortDate, todayKey } from '../dates';
-import { ageOn, eventsOn } from '../birthday';
+import { ageOn, eventsOn, stayOn } from '../birthday';
 import { toggleTask } from '../data';
 import { toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
-import { Avatar, BirthdayMark, Check, Empty, Icon, RepeatMark } from '../ui';
+import { Avatar, BirthdayMark, Check, Empty, Icon, RepeatMark, VacationMark } from '../ui';
 
 interface Props {
   h: Household;
@@ -104,8 +104,10 @@ export function Upcoming({ h, events, tasks, onEditTask, onEditEvent }: Props) {
                         <span className="ell">{e.title}</span>
                         {e.seriesId && <RepeatMark />}
                         {e.birthday && <BirthdayMark />}
+                        {e.vacation && <VacationMark />}
                       </span>
                       {e.birthday && ageOn(e, g.k) && <span className="ev-meta">{ageOn(e, g.k)}</span>}
+                      {e.dateEnd && <span className="ev-meta">{stayOn(e, g.k)}</span>}
                       {e.place && <span className="ev-meta row gap4 center">{Icon.pin}{e.place}</span>}
                     </span>
                     <Avatar h={h} owner={e.owner} size={28} soft />

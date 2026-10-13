@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { longLabel, todayKey } from '../dates';
-import { ageOn, eventsOn } from '../birthday';
+import { ageOn, eventsOn, stayOn } from '../birthday';
 import { addTask, toggleTask } from '../data';
 import { ownerChoices, partnerUid, toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
-import { Avatar, BirthdayMark, Check, DueChip, Empty, Icon, RepeatMark, type Tab } from '../ui';
+import { Avatar, BirthdayMark, Check, DueChip, Empty, Icon, RepeatMark, VacationMark, type Tab } from '../ui';
 
 interface Props {
   h: Household;
@@ -102,8 +102,9 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
                     <span className="ell">{e.title}</span>
                     {e.seriesId && <RepeatMark />}
                     {e.birthday && <BirthdayMark />}
+                    {e.vacation && <VacationMark />}
                   </span>
-                  <span className="ev-meta">{[e.birthday && ageOn(e, today), e.end && `jusqu’à ${e.end}`, e.place].filter(Boolean).join(' · ') || t.name}</span>
+                  <span className="ev-meta">{[e.birthday && ageOn(e, today), e.dateEnd && stayOn(e, today), e.end && `jusqu’à ${e.end}`, e.place].filter(Boolean).join(' · ') || t.name}</span>
                 </span>
                 <Avatar h={h} owner={e.owner} />
               </button>

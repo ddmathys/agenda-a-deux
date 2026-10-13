@@ -39,6 +39,8 @@ export interface EventItem {
   gcalOwner?: string | null;
   gcalSeries?: boolean; // gcalId désigne un événement récurrent Google (toute la série)
   birthday?: boolean; // anniversaire : revient chaque année au même jour (date = naissance)
+  vacation?: boolean; // vacances : une seule fiche, du jour « date » au jour « dateEnd »
+  dateEnd?: string | null; // YYYY-MM-DD, dernier jour inclus (vacances)
 }
 
 export interface Task {

@@ -55,6 +55,7 @@ export async function calendarToken(): Promise<string> {
 export interface CalInput {
   title: string;
   date: string;
+  dateEnd?: string | null; // vacances : dernier jour inclus
   start: string | null;
   end: string | null;
   place: string;
@@ -81,7 +82,8 @@ function body(e: CalInput) {
         start: { dateTime: `${e.date}T${e.start}:00`, timeZone: tz },
         end: { dateTime: `${e.date}T${e.end && e.end > e.start ? e.end : plusHour(e.start)}:00`, timeZone: tz },
       }
-    : { start: { date: e.date }, end: { date: keyOf(addDays(fromKey(e.date), 1)) } };
+    : // Jour entier : Google attend le lendemain du dernier jour (fin exclue).
+      { start: { date: e.date }, end: { date: keyOf(addDays(fromKey(e.dateEnd ?? e.date), 1)) } };
   return {
     summary: e.title,
     location: e.place || undefined,

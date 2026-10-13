@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { stayDays } from '../birthday';
 import { todayKey } from '../dates';
 import {
   addEvent, addEventSeries, addTask, deleteEvent, deleteEvents, deleteTask, updateEvent, updateEvents, updateTask,
@@ -48,6 +49,8 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
   const [list, setList] = useState(task?.list ?? h.lists[0]?.id ?? 'maison');
   const [repeat, setRepeat] = useState<Repeat>('none');
   const [birthday, setBirthday] = useState(!!ev?.birthday);
+  const [vacation, setVacation] = useState(!!ev?.vacation);
+  const [dateEnd, setDateEnd] = useState(ev?.dateEnd ?? '');
   const [until, setUntil] = useState('');
   const [untilTouched, setUntilTouched] = useState(false);
   const [flipped, setFlipped] = useState(false);
@@ -64,7 +67,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
   const series = ev?.seriesId ? events.filter((x) => x.seriesId === ev.seriesId) : [];
   const inSeries = series.length > 0;
   const wholeSeries = inSeries && scope === 'all';
-  const repeating = isNew && kind === 'event' && !birthday && repeat !== 'none';
+  const repeating = isNew && kind === 'event' && !birthday && !vacation && repeat !== 'none';
   const recRef = useRef<InstanceType<SpeechCtor> | null>(null);
   const firstRef = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
 
@@ -96,6 +99,8 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
     if (p.list && h.lists.some((l) => l.id === p.list)) setList(p.list);
     setRepeat(p.repeat);
     setBirthday(p.birthday);
+    setVacation(p.vacation);
+    setDateEnd(p.dateEnd ?? '');
   };
 
   const dictate = () => {
@@ -123,6 +128,10 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
     }
     if (kind === 'event' && !date) {
       setError('Un événement a besoin d’une date.');
+      return;
+    }
+    if (vacation && (!dateEnd || dateEnd < date)) {
+      setError('Choisis un dernier jour de vacances après le premier.');
       return;
     }
     let dates: string[] = [];
@@ -156,10 +165,12 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
 
     try {
       if (kind === 'event') {
-        // Un anniversaire dure toute la journée : ni heure ni lieu.
+        // Un anniversaire dure toute la journée : ni heure ni lieu. Des vacances : des jours entiers, avec un lieu.
         const data = birthday
-          ? { title: t, date, start: null, end: null, place: '', owner, birthday: true }
-          : { title: t, date, start: start || null, end: (start && end) || null, place: place.trim(), owner, birthday: false };
+          ? { title: t, date, start: null, end: null, place: '', owner, birthday: true, vacation: false, dateEnd: null }
+          : vacation
+            ? { title: t, date, start: null, end: null, place: place.trim(), owner, birthday: false, vacation: true, dateEnd }
+            : { title: t, date, start: start || null, end: (start && end) || null, place: place.trim(), owner, birthday: false, vacation: false, dateEnd: null };
         if (wholeSeries) {
           // La date reste propre à chaque occurrence : le reste change partout.
           const { date: _keep, ...shared } = data;
@@ -262,7 +273,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
     } else onClose();
   };
 
-  const heading = isNew ? 'Ajout rapide' : ev?.birthday ? 'Anniversaire' : inSeries ? 'Événement répété' : kind === 'event' ? 'Événement' : 'Tâche';
+  const heading = isNew ? 'Ajout rapide' : ev?.birthday ? 'Anniversaire' : ev?.vacation ? 'Vacances' : inSeries ? 'Événement répété' : kind === 'event' ? 'Événement' : 'Tâche';
 
   return (
     <div className="sheet-wrap" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
@@ -304,7 +315,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
 
         {!inSeries && (
           <div className="segmented" role="group" aria-label="Type">
-            <button type="button" className={kind === 'task' ? 'on' : ''} onClick={() => { setKind('task'); setRepeat('none'); setBirthday(false); setFlipped(false); }} aria-pressed={kind === 'task'}>Tâche</button>
+            <button type="button" className={kind === 'task' ? 'on' : ''} onClick={() => { setKind('task'); setRepeat('none'); setBirthday(false); setVacation(false); setFlipped(false); }} aria-pressed={kind === 'task'}>Tâche</button>
             <button type="button" className={kind === 'event' ? 'on' : ''} onClick={() => setKind('event')} aria-pressed={kind === 'event'}>Événement</button>
           </div>
         )}
@@ -327,16 +338,26 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
             <input ref={isNew ? undefined : firstRef} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Quoi ?" />
           </label>
           <label className="field">
-            <span className="field-name">{birthday ? 'Naissance' : 'Quand'}</span>
+            <span className="field-name">{birthday ? 'Naissance' : vacation ? 'Du' : 'Quand'}</span>
             <input
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => {
+                setDate(e.target.value);
+                // Le retour suit le départ s'il tombait avant.
+                if (vacation && e.target.value && (!dateEnd || dateEnd < e.target.value)) setDateEnd(e.target.value);
+              }}
               min={isNew && !birthday ? todayKey() : undefined}
               disabled={wholeSeries}
             />
           </label>
-          {!birthday && (
+          {vacation && (
+            <label className="field">
+              <span className="field-name">Au</span>
+              <input type="date" value={dateEnd} min={date || undefined} onChange={(e) => setDateEnd(e.target.value)} />
+            </label>
+          )}
+          {!birthday && !vacation && (
           <div className="field">
             <span className="field-name">Heure</span>
             <span className="row gap6 center">
@@ -356,7 +377,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
               <input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Lieu (facultatif)" />
             </label>
           )}
-          {isNew && !birthday && (
+          {isNew && !birthday && !vacation && (
             <label className="field">
               <span className="field-name">Répéter</span>
               <select
@@ -393,6 +414,24 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
         </div>
         {!inSeries && (
           <label className="toggle-row">
+            <span className="grow">🏖️ Vacances, du… au…</span>
+            <input
+              type="checkbox"
+              checked={vacation}
+              onChange={(e) => {
+                setVacation(e.target.checked);
+                if (e.target.checked) {
+                  setKind('event');
+                  setRepeat('none');
+                  setBirthday(false);
+                  if (!dateEnd || dateEnd < date) setDateEnd(date);
+                }
+              }}
+            />
+          </label>
+        )}
+        {!inSeries && (
+          <label className="toggle-row">
             <span className="grow">🎂 Anniversaire, chaque année</span>
             <input
               type="checkbox"
@@ -402,10 +441,14 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
                 if (e.target.checked) {
                   setKind('event');
                   setRepeat('none');
+                  setVacation(false);
                 }
               }}
             />
           </label>
+        )}
+        {vacation && date && dateEnd >= date && (
+          <p className="muted small">{stayDays({ date, dateEnd })} jours, visibles chaque jour dans l’agenda et sur le mural de l’année.</p>
         )}
         {birthday && (
           <p className="muted small">Revient tous les ans au même jour. Avec l’année de naissance, l’app affiche l’âge.</p>

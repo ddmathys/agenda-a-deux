@@ -1,4 +1,4 @@
-import { addDays, keyOf } from './dates';
+import { addDays, fromKey, keyOf } from './dates';
 import type { Owner, Repeat } from './types';
 
 /**
@@ -17,6 +17,8 @@ export interface Parsed {
   list: string | null;
   repeat: Repeat;
   birthday: boolean;
+  vacation: boolean;
+  dateEnd: string | null;
 }
 
 interface PersonRef {
@@ -87,7 +89,27 @@ export function parseQuick(text: string, me: string, people: PersonRef[], now = 
   // Date
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   let m: RegExpMatchArray | null;
-  if ((m = s.match(/\s(après-demain|apres-demain|après demain)\b/i))) {
+  let dateEnd: string | null = null;
+  // Séjour : « du 12 au 19 juillet », « du 28 juillet au 3 août 2027 »
+  const span = s.match(/\s(?:du\s+)?(\d{1,2})(?:er)?(?:\s+([a-zéû]+)\.?)?\s+(?:au|jusqu'au|jusqu’au|-|–)\s+(\d{1,2})(?:er)?\s+([a-zéû]+)\.?(?:\s+(\d{4}))?(?=[\s,.;!?])/i);
+  const m1 = span?.[2] ? MONTHS[span[2].toLowerCase()] : undefined;
+  const m2 = span ? MONTHS[span[4].toLowerCase()] : undefined;
+  if (span && m2 !== undefined && (!span[2] || m1 !== undefined)) {
+    dateEnd = buildDate(today, Number(span[3]), m2, span[5]);
+    if (dateEnd) {
+      const endD = fromKey(dateEnd);
+      // Sans mois au début, c'est celui de la fin (ou le précédent : « du 28 au 3 août »).
+      let startM = m1 ?? m2;
+      if (m1 === undefined && Number(span[1]) > Number(span[3])) startM -= 1;
+      let first = new Date(endD.getFullYear(), startM, Number(span[1]));
+      if (first > endD) first = new Date(endD.getFullYear() - 1, startM, Number(span[1]));
+      date = keyOf(first);
+      cut(new RegExp(escape(span[0])));
+    }
+  }
+  if (date) {
+    /* déjà lu avec le séjour */
+  } else if ((m = s.match(/\s(après-demain|apres-demain|après demain)\b/i))) {
     date = keyOf(addDays(today, 2));
     cut(new RegExp(escape(m[0])));
   } else if ((m = s.match(/\s(demain)(\s+(matin|midi|soir|après-midi))?\b/i))) {
@@ -154,7 +176,9 @@ export function parseQuick(text: string, me: string, people: PersonRef[], now = 
   // Ce qui se répète dans l'agenda est un rendez-vous (les tâches ne se répètent pas encore).
   // « Anniversaire de Léa le 12 mars » : revient chaque année.
   const birthday = /^\s*(anniv|anniversaire)\b/i.test(raw);
-  const kind: Parsed['kind'] = birthday || end || repeat !== 'none' || EVENT_WORDS.test(raw) ? 'event' : 'task';
+  // « Vacances à Rome du 12 au 19 juillet » : un séjour de plusieurs jours.
+  const vacation = !birthday && (!!dateEnd || /(^|\s)(vacances?|cong[ée]s?)(?=$|[\s,.;!?])/i.test(raw));
+  const kind: Parsed['kind'] = birthday || vacation || end || repeat !== 'none' || EVENT_WORDS.test(raw) ? 'event' : 'task';
 
   const title = s
     .replace(/\s+/g, ' ')
@@ -171,8 +195,10 @@ export function parseQuick(text: string, me: string, people: PersonRef[], now = 
     end: end ?? (kind === 'event' && start ? plusHour(start) : null),
     owner,
     list,
-    repeat: birthday ? 'none' : repeat,
+    repeat: birthday || vacation ? 'none' : repeat,
     birthday,
+    vacation,
+    dateEnd: vacation ? dateEnd ?? date : null,
   };
 }
 

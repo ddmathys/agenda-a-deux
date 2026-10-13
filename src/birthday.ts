@@ -1,4 +1,4 @@
-import { fromKey, todayKey } from './dates';
+import { fromKey, shortDate, todayKey } from './dates';
 import type { EventItem } from './types';
 
 /**
@@ -16,9 +16,26 @@ function sameDay(birth: string, k: string): boolean {
   return new Date(y, 1, 29).getMonth() !== 1;
 }
 
-/** Les événements d'un jour, anniversaires de chaque année compris. */
+/** Les événements d'un jour, anniversaires de chaque année et vacances en cours compris. */
 export function eventsOn(events: EventItem[], k: string): EventItem[] {
-  return events.filter((e) => (e.birthday ? e.date <= k && sameDay(e.date, k) : e.date === k));
+  return events.filter((e) => {
+    if (e.birthday) return e.date <= k && sameDay(e.date, k);
+    if (e.dateEnd) return e.date <= k && k <= e.dateEnd;
+    return e.date === k;
+  });
+}
+
+/** Nombre de jours d'un séjour, premier et dernier compris. */
+export function stayDays(e: Pick<EventItem, 'date' | 'dateEnd'>): number {
+  if (!e.dateEnd) return 1;
+  return Math.round((fromKey(e.dateEnd).getTime() - fromKey(e.date).getTime()) / 86400000) + 1;
+}
+
+/** « jour 3 sur 8 · jusqu’au 19 juil. » le jour k d'un séjour. */
+export function stayOn(e: EventItem, k: string): string {
+  if (!e.dateEnd) return '';
+  const n = Math.round((fromKey(k).getTime() - fromKey(e.date).getTime()) / 86400000) + 1;
+  return `jour ${n} sur ${stayDays(e)} · jusqu’au ${shortDate(e.dateEnd)}`;
 }
 
 /** « 7 ans » le jour k ; rien si l'année de naissance est celle de la fiche (inconnue). */
