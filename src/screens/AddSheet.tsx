@@ -20,6 +20,20 @@ const TILES: { id: TileId; label: string; icon: ReactNode }[] = [
   { id: 'bday', label: 'Anniv.', icon: <svg width="20" height="20" viewBox="0 0 24 24" {...tileStroke}><path d="M4 20h16M5 20v-7h14v7M8 13v-3M12 13v-3M16 13v-3M8 6.5c0-1 1-2 0-3M12 6.5c0-1 1-2 0-3M16 6.5c0-1 1-2 0-3" /></svg> },
 ];
 
+// Rappel d'un rendez-vous, en minutes avant ; sans heure, le rappel part à 8 h le jour même.
+const REMIND_CHOICES = [
+  { v: 0, label: 'Pas de rappel' },
+  { v: 10, label: '10 min avant' },
+  { v: 30, label: '30 min avant' },
+  { v: 60, label: '1 h avant' },
+  { v: 120, label: '2 h avant' },
+  { v: 1440, label: 'La veille' },
+];
+const REMIND_DAY = [
+  { v: 0, label: 'Pas de rappel' },
+  { v: 60, label: 'Le matin à 8 h' },
+];
+
 export type SheetMode = { kind: 'new'; preset?: 'bday' | 'vac' } | { kind: 'task'; task: Task } | { kind: 'event'; ev: EventItem };
 
 interface Props {
@@ -49,6 +63,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
   // Date de naissance tapée au clavier (« 12.03.2019 ») : plus rapide que remonter le calendrier.
   const [bdayText, setBdayText] = useState(ev?.birthday ? ev.date.split('-').reverse().join('.') : '');
   const [vacation, setVacation] = useState(!!ev?.vacation || preset === 'vac');
+  const [remind, setRemind] = useState<number>(ev?.remind ?? 60);
   const [dateEnd, setDateEnd] = useState(ev?.dateEnd ?? '');
   const [until, setUntil] = useState('');
   const [untilTouched, setUntilTouched] = useState(false);
@@ -168,7 +183,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
           ? { title: t, date, start: null, end: null, place: '', owner, birthday: true, vacation: false, dateEnd: null }
           : vacation
             ? { title: t, date, start: null, end: null, place: place.trim(), owner, birthday: false, vacation: true, dateEnd }
-            : { title: t, date, start: start || null, end: (start && end) || null, place: place.trim(), owner, birthday: false, vacation: false, dateEnd: null };
+            : { title: t, date, start: start || null, end: (start && end) || null, place: place.trim(), owner, birthday: false, vacation: false, dateEnd: null, remind };
         if (wholeSeries) {
           // La date reste propre à chaque occurrence : le reste change partout.
           const { date: _keep, ...shared } = data;
@@ -370,6 +385,14 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
             <label className="field">
               <span className="field-name">Où</span>
               <input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Lieu (facultatif)" />
+            </label>
+          )}
+          {kind === 'event' && !birthday && !vacation && (
+            <label className="field">
+              <span className="field-name">Rappel</span>
+              <select value={remind} onChange={(e) => setRemind(Number(e.target.value))}>
+                {(start ? REMIND_CHOICES : REMIND_DAY).map((c) => <option key={c.v} value={c.v}>{c.label}</option>)}
+              </select>
             </label>
           )}
           {isNew && !birthday && !vacation && (

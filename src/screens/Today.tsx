@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { disablePush, enablePush, pushState, type PushState } from '../push';
 import { addDays, cap, DAYS, fromKey, keyOf, mondayOf, MONTHS, shortDate, todayKey } from '../dates';
 import { ageOn, eventsOn, stayOn } from '../birthday';
 import { addTask, toggleTask } from '../data';
@@ -55,6 +56,46 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
     await addTask(h.id, me, { title, list: h.lists[0]?.id ?? 'maison', due: null, time: null, owner: filter === 'all' ? 'both' : filter });
   };
   const partner = partnerUid(h, me);
+
+  // Rappels : état de l'abonnement de ce téléphone.
+  const [push, setPush] = useState<PushState>('unsupported');
+  const [pushNote, setPushNote] = useState('');
+  const [pushLater, setPushLater] = useState(() => {
+    try {
+      return localStorage.getItem('push-later') === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    pushState().then(setPush).catch(() => setPush('unsupported'));
+  }, []);
+  const togglePush = async () => {
+    setPushNote('');
+    if (push === 'unsupported') {
+      setPushNote('Ce téléphone ou ce navigateur ne permet pas les notifications.');
+      return;
+    }
+    if (push === 'denied') {
+      setPushNote('Les notifications sont bloquées : autorise-les dans les réglages du téléphone (Applications › Agenda à deux › Notifications).');
+      return;
+    }
+    try {
+      const next = push === 'on' ? await disablePush(me) : await enablePush(me);
+      setPush(next);
+      setPushNote(next === 'on' ? 'Rappels activés sur ce téléphone.' : next === 'denied' ? 'Notifications refusées.' : 'Rappels coupés sur ce téléphone.');
+    } catch {
+      setPushNote('Impossible d’activer les rappels pour l’instant. Réessaie.');
+    }
+  };
+  const later = () => {
+    setPushLater(true);
+    try {
+      localStorage.setItem('push-later', '1');
+    } catch {
+      /* rien */
+    }
+  };
   const pills = [{ id: 'all', label: 'Tout' }, ...ownerChoices(h, me)];
 
   return (
@@ -68,13 +109,38 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
           <span className="version">{__APP_VERSION__}</span>
         </div>
         <div className="col rel hello-side">
+          <div className="row center gap8">
+          <button
+            className={push === 'on' ? 'bell on' : 'bell'}
+            onClick={togglePush}
+            aria-pressed={push === 'on'}
+            aria-label={push === 'on' ? 'Rappels activés, toucher pour les couper' : 'Activer les rappels'}
+          >
+            {Icon.bell}
+          </button>
           <div className="row hello-avs">
             <Avatar h={h} owner={me} size={40} />
             {partner && <span className="overlap"><Avatar h={h} owner={partner} size={40} /></span>}
           </div>
+          </div>
           {!partner && <Invite code={h.id} />}
         </div>
       </header>
+
+      {push === 'off' && !pushLater && (
+        <section className="push-card">
+          <span className="push-icon" aria-hidden="true">{Icon.bell}</span>
+          <span className="col grow min0 gap2">
+            <span className="push-title">Active les rappels</span>
+            <span className="push-sub">Rendez-vous, anniversaires, et quand {partner ? h.people[partner]?.name : 'ta moitié'} ajoute quelque chose.</span>
+          </span>
+          <span className="col gap4">
+            <button className="push-on" onClick={togglePush}>Activer</button>
+            <button className="push-later" onClick={later}>Plus tard</button>
+          </span>
+        </section>
+      )}
+      {pushNote && <p className="push-note" role="status">{pushNote}</p>}
 
       <div className="strip" role="group" aria-label="Cette semaine">
         {week.map((k, i) => (

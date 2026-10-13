@@ -41,6 +41,7 @@ export interface EventItem {
   birthday?: boolean; // anniversaire : revient chaque année au même jour (date = naissance)
   vacation?: boolean; // vacances : une seule fiche, du jour « date » au jour « dateEnd »
   dateEnd?: string | null; // YYYY-MM-DD, dernier jour inclus (vacances)
+  remind?: number; // rappel en minutes avant (0 = aucun ; absent = 1 h avant, ou 8 h le jour même sans heure)
 }
 
 export interface Task {

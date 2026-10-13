@@ -555,3 +555,19 @@ h1, h2, .sheet-title, .page-head h1, .section-head h2, .h18, .h19, .h20 { font-f
 .bday-hero.vac { background: #ECE5FF; }
 .bday-hero.vac .count-kicker { color: var(--purple); }
 .bday-hero.vac .count-big { color: #3B1FA0; }
+
+/* Rappels */
+.bell {
+  width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--white); color: var(--muted2);
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(155, 123, 255, 0.18);
+}
+.bell.on { background: var(--coral); color: #3A1400; }
+.push-card {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 22px; background: #D5F5F1;
+}
+.push-icon { width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; background: var(--white); color: #0B5F57; display: flex; align-items: center; justify-content: center; }
+.push-title { font-family: var(--display); font-size: 17px; font-weight: 600; }
+.push-sub { font-size: 12.5px; font-weight: 600; color: #0B5F57; line-height: 1.3; }
+.push-on { min-height: 38px; padding: 0 14px; border: none; border-radius: 999px; background: var(--turq); color: #00302B; font-weight: 800; font-size: 13.5px; }
+.push-later { min-height: 30px; border: none; background: none; color: #0B5F57; font-size: 12px; font-weight: 700; }
+.push-note { margin: 0; font-size: 13px; font-weight: 700; color: var(--muted2); background: var(--white); padding: 8px 12px; border-radius: 14px; }

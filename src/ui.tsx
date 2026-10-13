@@ -21,6 +21,7 @@ export const Icon = {
   spark: <svg width="15" height="15" viewBox="0 0 24 24" {...stroke} strokeWidth={2.2}><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" /></svg>,
   wall: <svg width="24" height="24" viewBox="0 0 24 24" {...stroke}><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M3 9.5h18M3 14.5h18M9 4v16M15 4v16" /></svg>,
   repeat: <svg width="13" height="13" viewBox="0 0 24 24" {...stroke} strokeWidth={2.4}><path d="M4 11V9a4 4 0 0 1 4-4h9M17 2l3 3-3 3M20 13v2a4 4 0 0 1-4 4H7M7 22l-3-3 3-3" /></svg>,
+  bell: <svg width="20" height="20" viewBox="0 0 24 24" {...stroke} strokeWidth={2.2}><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9zM10 20a2.2 2.2 0 0 0 4 0" /></svg>,
   share: <svg width="18" height="18" viewBox="0 0 24 24" {...stroke} strokeWidth={2.2}><path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" /></svg>,
 };
 

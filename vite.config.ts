@@ -15,7 +15,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
-      includeAssets: ['icon.svg'],
+      includeAssets: ['icon.svg', 'badge.png', 'push-sw.js'],
       manifest: {
         name: 'Agenda à deux',
         short_name: 'À deux',
@@ -31,7 +31,7 @@ export default defineConfig({
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', },
         ],
       },
-      workbox: { navigateFallbackDenylist: [/^\/__\//] },
+      workbox: { navigateFallbackDenylist: [/^\/__\//], importScripts: ['push-sw.js'] },
     }),
   ],
 });
