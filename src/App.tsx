@@ -41,7 +41,7 @@ function Shell({ h, user }: { h: Household; user: User }) {
     <div className="app">
       {tab === 'today' && <Today h={h} me={me} events={events} tasks={tasks} onTab={go} {...edit} />}
       {tab === 'upcoming' && <Upcoming h={h} events={events} tasks={tasks} {...edit} />}
-      {tab === 'year' && <Year h={h} me={me} events={events} onEditEvent={edit.onEditEvent} />}
+      {tab === 'year' && <Year h={h} me={me} events={events} tasks={tasks} {...edit} />}
       <Nav tab={tab} onTab={go} onAdd={() => setSheet({ kind: 'new' })} />
       {sheet && (
         <AddSheet

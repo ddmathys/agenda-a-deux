@@ -48,9 +48,9 @@ export function Upcoming({ h, events, tasks, onEditTask, onEditEvent }: Props) {
 
   return (
     <div className="screen">
-      <header className="page-head">
-        <div className="col gap4">
-          <span className="kicker" style={{ color: '#D92B45' }}>Semaine {isoWeek(monday)}</span>
+      <header className="page-head center">
+        <div className="col gap2">
+          <span className="kicker" style={{ color: '#C2410C' }}>Semaine {isoWeek(monday)}</span>
           <h1>À venir</h1>
         </div>
         <div className="row gap8">
@@ -59,46 +59,42 @@ export function Upcoming({ h, events, tasks, onEditTask, onEditEvent }: Props) {
         </div>
       </header>
 
-      <div className="week">
+      <div className="strip" role="group" aria-label="Jours de la semaine">
         {week.map((k, i) => {
           const on = k === sel;
-          const isToday = k === today;
-          const past = k < today;
           return (
             <button
               key={k}
-              className={`day${on ? ' on' : isToday ? ' today' : past ? ' past' : ''}`}
+              className={`strip-day${on ? ' sel' : k === today ? ' on' : k < today ? ' past' : ''}`}
               onClick={() => setSel(k)}
               aria-label={`Voir le ${shortDate(k)}`}
               aria-pressed={on}
             >
-              <span className="day-l">{LETTERS[i]}</span>
-              <span className="day-n">{fromKey(k).getDate()}</span>
+              <span className="strip-l">{LETTERS[i]}</span>
+              <span className="strip-n">{fromKey(k).getDate()}</span>
               <span className="dots">
-                {ownersOn(k).map((o) => <span key={o} className="dot" style={{ background: on ? '#FFFFFF' : toneOf(h, o).c, opacity: past && !on ? 0.45 : 1 }} />)}
+                {ownersOn(k).map((o) => <span key={o} className="dot" style={{ background: toneOf(h, o).c }} />)}
               </span>
             </button>
           );
         })}
       </div>
 
-      <div className="col gap16">
+      <div className="col gap18">
         {groups.length === 0 && <Empty>Rien de prévu sur les 7 jours à partir d’ici.</Empty>}
         {groups.map((g) => (
-          <section key={g.k} className="col gap8">
-            <div className="row gap8 baseline">
-              <h2 className="h19">{dayGroupTitle(g.k)}</h2>
-              <span className="sub">{shortDate(g.k)}</span>
+          <section key={g.k} className="day-group">
+            <div className="day-badge" aria-hidden="true">
+              <span className="day-badge-n">{fromKey(g.k).getDate()}</span>
+              <span className="day-badge-m">{shortDate(g.k).split(' ')[1]}</span>
             </div>
-            {g.evs.map((e) => {
-              const t = toneOf(h, e.owner);
-              return (
-                <button key={e.id} className="ev-block" onClick={() => onEditEvent(e)}>
-                  <span className="ev-time" style={{ background: t.c, color: t.on }}>
-                    <span className="ev-start">{e.start ?? 'Jour'}</span>
-                    {e.end && <span className="ev-end">{e.end}</span>}
-                  </span>
-                  <span className="row grow min0 gap10 center ev-body">
+            <div className="col gap8 grow min0">
+              <h2 className="day-title">{dayGroupTitle(g.k)}<span className="sr-only"> {shortDate(g.k)}</span></h2>
+              {g.evs.map((e) => {
+                const t = toneOf(h, e.owner);
+                return (
+                  <button key={e.id} className="ev-card" style={{ background: t.s }} onClick={() => onEditEvent(e)}>
+                    <span className="ev-hour">{e.start ?? 'Jour'}</span>
                     <span className="col grow min0 gap2">
                       <span className="ev-title row gap6 center">
                         <span className="ell">{e.title}</span>
@@ -106,25 +102,29 @@ export function Upcoming({ h, events, tasks, onEditTask, onEditEvent }: Props) {
                         {e.birthday && <BirthdayMark />}
                         {e.vacation && <VacationMark />}
                       </span>
-                      {e.birthday && ageOn(e, g.k) && <span className="ev-meta">{ageOn(e, g.k)}</span>}
-                      {e.dateEnd && <span className="ev-meta">{stayOn(e, g.k)}</span>}
-                      {e.place && <span className="ev-meta row gap4 center">{Icon.pin}{e.place}</span>}
+                      <span className="ev-meta" style={{ color: t.t }}>
+                        {[e.birthday && ageOn(e, g.k), e.dateEnd && stayOn(e, g.k), e.end && `jusqu’à ${e.end}`, e.place].filter(Boolean).join(' · ') || t.name}
+                      </span>
                     </span>
-                    <Avatar h={h} owner={e.owner} size={28} soft />
-                  </span>
-                </button>
-              );
-            })}
-            {g.tks.map((tk) => {
-              const t = toneOf(h, tk.owner);
-              return (
-                <div key={tk.id} className="task-dashed">
-                  <Check h={h} task={tk} onToggle={() => toggleTask(h.id, tk)} square />
-                  <button className={tk.done ? 'task-title done' : 'task-title'} onClick={() => onEditTask(tk)}>{tk.title}</button>
-                  <span className="chip" style={{ background: t.s, color: t.t }}>{tk.time ?? t.name}</span>
+                    <Avatar h={h} owner={e.owner} size={30} />
+                  </button>
+                );
+              })}
+              {g.tks.length > 0 && (
+                <div className="card-list">
+                  {g.tks.map((tk) => {
+                    const t = toneOf(h, tk.owner);
+                    return (
+                      <div key={tk.id} className="task-row">
+                        <Check h={h} task={tk} onToggle={() => toggleTask(h.id, tk)} />
+                        <button className={tk.done ? 'task-title done' : 'task-title'} onClick={() => onEditTask(tk)}>{tk.title}</button>
+                        <span className="chip" style={{ background: t.s, color: t.t }}>{tk.time ?? t.name}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              )}
+            </div>
           </section>
         ))}
       </div>

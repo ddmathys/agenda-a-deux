@@ -486,3 +486,51 @@ h1, h2, .sheet-title, .page-head h1, .section-head h2, .h18, .h19, .h20 { font-f
 @media (min-width: 400px) { .mini-d { height: 17px; font-size: 9.5px; } }
 .bday-date { color: #7A4A00; }
 .version { align-self: flex-start; margin-top: 6px; font-size: 11.5px; font-weight: 800; color: var(--purple); background: #ECE5FF; padding: 3px 9px; border-radius: 999px; }
+.hello-side { align-items: flex-end; gap: 8px; }
+.invite-chip {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 10px; border-radius: 999px;
+  border: none; background: var(--white); color: var(--coral-ink); font-size: 11.5px; font-weight: 800;
+  box-shadow: 0 4px 12px rgba(155, 123, 255, 0.18);
+}
+.invite-chip svg { width: 14px; height: 14px; }
+.vac-line {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 12px;
+  border: none; border-radius: 999px; background: var(--white); color: var(--muted2); font-size: 13px; font-weight: 600;
+}
+.vac-line b { color: var(--ink); font-weight: 800; }
+.count-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* À venir : jours en pastilles, cartes claires */
+.gap18 { gap: 18px; }
+.strip-day.sel { background: var(--coral); color: #3A1400; box-shadow: 0 8px 18px rgba(255, 138, 91, 0.4); }
+.day-group { display: flex; gap: 12px; align-items: flex-start; }
+.day-badge {
+  width: 52px; flex-shrink: 0; border-radius: 18px; background: var(--white); padding: 8px 0 6px;
+  display: flex; flex-direction: column; align-items: center; box-shadow: var(--shadow);
+}
+.day-badge-n { font-family: var(--display); font-size: 22px; font-weight: 700; line-height: 1; }
+.day-badge-m { font-size: 11px; font-weight: 800; color: var(--muted); }
+.day-title { font-family: var(--display); font-size: 19px; font-weight: 600; padding-top: 4px; }
+
+/* Mural : un mois se touche pour l'ouvrir */
+.mini { border: none; text-align: left; color: var(--ink); cursor: pointer; transition: transform 0.15s; }
+.mini:active { transform: scale(0.97); }
+.back-link {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 2px; min-height: 32px; padding: 0 10px 0 2px;
+  border: none; background: none; color: var(--coral-ink); font-size: 14px; font-weight: 800;
+}
+.back-link svg { width: 16px; height: 16px; }
+.big-month {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px;
+  background: var(--white); border-radius: 26px; padding: 12px 10px; box-shadow: var(--shadow);
+}
+.bm-l { text-align: center; font-size: 11px; font-weight: 800; color: var(--muted); padding-bottom: 2px; }
+.bm-d {
+  height: 46px; border: none; border-radius: 14px; background: transparent; color: var(--ink); padding: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+}
+.bm-d.now { box-shadow: inset 0 0 0 2px var(--ink); }
+.bm-d.sel { outline: 3px solid var(--coral); outline-offset: -1px; }
+.bm-n { font-family: var(--display); font-size: 16px; font-weight: 600; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.bm-n.bday { background: var(--sun); }
+.md-day { font-size: 13px; font-weight: 800; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.03em; padding-left: 4px; }

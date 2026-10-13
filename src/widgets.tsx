@@ -4,31 +4,56 @@ import { ownerChoices, toneOf } from './tones';
 import type { EventItem, Household } from './types';
 import { daysUntil, nextVacation, vacationCount } from './vacation';
 
-/** Les deux comptes à rebours : prochaines vacances et prochain anniversaire. */
-export function Countdowns({ events, today, onOpen }: { events: EventItem[]; today: string; onOpen: (e: EventItem) => void }) {
+/**
+ * Les deux comptes à rebours côte à côte : prochain anniversaire et prochaines vacances,
+ * puis, en petit dessous, le cumul de jours de vacances de l'année.
+ */
+export function Countdowns({ h, me, events, today, onOpen, onYear }: {
+  h: Household; me: string; events: EventItem[]; today: string; onOpen: (e: EventItem) => void; onYear: () => void;
+}) {
   const vac = nextVacation(events, today);
   const bday = nextBirthday(events, today);
-  if (!vac && !bday) return null;
   const vacIn = vac ? daysUntil(vac.date, today) : 0;
   const bdayIn = bday ? daysUntil(bday.on, today) : 0;
+  const year = Number(today.slice(0, 4));
+  const mine = vacationCount(events, me, year, today);
   return (
-    <div className="count-grid">
-      {vac && (
-        <button className="count-card lilac" onClick={() => onOpen(vac)}>
-          <span className="count-kicker">Vacances</span>
-          <span className="count-big">{vacIn <= 0 ? 'En cours' : `J-${vacIn}`}</span>
-          <span className="count-title ell">{vac.title}</span>
-          <span className="count-sub">{shortDate(vac.date)} → {shortDate(vac.dateEnd!)} · {stayDays(vac)} j</span>
-        </button>
-      )}
-      {bday && (
-        <button className="count-card sun" onClick={() => onOpen(bday.e)}>
-          <span className="count-kicker">Anniversaire</span>
-          <span className="count-big">{bdayIn === 0 ? 'Aujourd’hui' : `J-${bdayIn}`}</span>
-          <span className="count-title ell">{[bday.e.title, ageOn(bday.e, bday.on)].filter(Boolean).join(' · ')}</span>
-          <span className="count-sub">{DAYS[fromKey(bday.on).getDay()]} {shortDate(bday.on)}</span>
-        </button>
-      )}
+    <div className="col gap8">
+      <div className="count-grid">
+        {bday ? (
+          <button className="count-card sun" onClick={() => onOpen(bday.e)}>
+            <span className="count-kicker">Anniversaire</span>
+            <span className="count-big">{bdayIn === 0 ? 'Jour J' : `J-${bdayIn}`}</span>
+            <span className="count-title ell">{[bday.e.title, ageOn(bday.e, bday.on)].filter(Boolean).join(' · ')}</span>
+            <span className="count-sub">{DAYS[fromKey(bday.on).getDay()]} {shortDate(bday.on)}</span>
+          </button>
+        ) : (
+          <div className="count-card sun">
+            <span className="count-kicker">Anniversaire</span>
+            <span className="count-big">—</span>
+            <span className="count-sub">Aucun noté pour l’instant</span>
+          </div>
+        )}
+        {vac ? (
+          <button className="count-card lilac" onClick={() => onOpen(vac)}>
+            <span className="count-kicker">Vacances</span>
+            <span className="count-big">{vacIn <= 0 ? 'En cours' : `J-${vacIn}`}</span>
+            <span className="count-title ell">{vac.title}</span>
+            <span className="count-sub">{shortDate(vac.date)} → {shortDate(vac.dateEnd!)} · {stayDays(vac)} j</span>
+          </button>
+        ) : (
+          <div className="count-card lilac">
+            <span className="count-kicker">Vacances</span>
+            <span className="count-big">—</span>
+            <span className="count-sub">Rien de prévu : ajoute-les avec le +</span>
+          </div>
+        )}
+      </div>
+      <button className="vac-line" onClick={onYear}>
+        <span className="pill-dot" style={{ background: toneOf(h, me).c }} />
+        Vacances {year} : <b>{mine.taken} {mine.taken > 1 ? 'jours pris' : 'jour pris'}</b>
+        {mine.planned > 0 && <> · {mine.planned} prévu{mine.planned > 1 ? 's' : ''}</>}
+      </button>
     </div>
   );
 }

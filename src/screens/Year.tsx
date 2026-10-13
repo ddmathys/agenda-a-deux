@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { ageOn, stayDays } from '../birthday';
 import { MONTHS, shortDate, todayKey } from '../dates';
 import { ownerChoices, toneOf } from '../tones';
-import type { EventItem, Household } from '../types';
+import type { EventItem, Household, Task } from '../types';
+import { MonthDetail } from './MonthDetail';
 import { Avatar, Icon } from '../ui';
 import { VacationWidget } from '../widgets';
 
@@ -10,7 +11,9 @@ interface Props {
   h: Household;
   me: string;
   events: EventItem[];
+  tasks: Task[];
   onEditEvent: (e: EventItem) => void;
+  onEditTask: (t: Task) => void;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -19,9 +22,11 @@ const pad = (n: number) => String(n).padStart(2, '0');
  * Le mural de l'année : douze petits calendriers, les vacances et les anniversaires
  * en couleur, puis le compteur de vacances et les listes.
  */
-export function Year({ h, me, events, onEditEvent }: Props) {
+export function Year({ h, me, events, tasks, onEditEvent, onEditTask }: Props) {
   const today = todayKey();
   const [year, setYear] = useState(() => new Date().getFullYear());
+  // Mois ouvert en détail (null = le mural de l'année).
+  const [open, setOpen] = useState<number | null>(null);
   const y0 = `${year}-01-01`;
   const y1 = `${year}-12-31`;
 
@@ -45,7 +50,7 @@ export function Year({ h, me, events, onEditEvent }: Props) {
     const len = new Date(year, m + 1, 0).getDate();
     const cur = `${year}-${pad(m + 1)}` === today.slice(0, 7);
     return (
-      <div key={m} className={cur ? 'mini cur' : 'mini'}>
+      <button key={m} className={cur ? 'mini cur' : 'mini'} onClick={() => { setOpen(m); window.scrollTo({ top: 0 }); }} aria-label={`Voir ${MONTHS[m]} en détail`}>
         <span className="mini-name">{MONTHS[m].charAt(0).toUpperCase() + MONTHS[m].slice(1)}</span>
         <div className="mini-grid">
           {Array.from({ length: blanks }, (_, i) => <span key={`b${i}`} />)}
@@ -58,9 +63,25 @@ export function Year({ h, me, events, onEditEvent }: Props) {
             return <span key={k} className={cls} style={bg && !bdayDays.has(k) ? { background: bg } : undefined}>{i + 1}</span>;
           })}
         </div>
-      </div>
+      </button>
     );
   };
+
+  if (open !== null) {
+    return (
+      <MonthDetail
+        h={h}
+        events={events}
+        tasks={tasks}
+        year={year}
+        month={open}
+        onBack={() => setOpen(null)}
+        onMonth={(y, m) => { setYear(y); setOpen(m); }}
+        onEditEvent={onEditEvent}
+        onEditTask={onEditTask}
+      />
+    );
+  }
 
   return (
     <div className="screen">

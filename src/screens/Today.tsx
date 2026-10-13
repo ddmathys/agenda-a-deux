@@ -5,7 +5,7 @@ import { addTask, toggleTask } from '../data';
 import { ownerChoices, partnerUid, toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
 import { Avatar, BirthdayMark, Check, DueChip, Empty, Icon, RepeatMark, VacationMark, type Tab } from '../ui';
-import { Countdowns, VacationWidget } from '../widgets';
+import { Countdowns } from '../widgets';
 
 const LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
@@ -67,9 +67,12 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
           <h1 className="hello-title">Bonjour<br />{h.people[me]?.name}</h1>
           <span className="version">{__APP_VERSION__}</span>
         </div>
-        <div className="row rel hello-avs">
-          <Avatar h={h} owner={me} size={40} />
-          {partner && <span className="overlap"><Avatar h={h} owner={partner} size={40} /></span>}
+        <div className="col rel hello-side">
+          <div className="row hello-avs">
+            <Avatar h={h} owner={me} size={40} />
+            {partner && <span className="overlap"><Avatar h={h} owner={partner} size={40} /></span>}
+          </div>
+          {!partner && <Invite code={h.id} />}
         </div>
       </header>
 
@@ -85,10 +88,7 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
         ))}
       </div>
 
-      <Countdowns events={events} today={today} onOpen={onEditEvent} />
-      <VacationWidget h={h} me={me} events={events} year={Number(today.slice(0, 4))} today={today} onClick={() => onTab('year')} />
-
-      {!partner && <Invite code={h.id} />}
+      <Countdowns h={h} me={me} events={events} today={today} onOpen={onEditEvent} onYear={() => onTab('year')} />
 
       <div className="pills" role="group" aria-label="Filtrer par personne">
         {pills.map((p) => {
@@ -171,9 +171,8 @@ function Invite({ code }: { code: string }) {
     }
   };
   return (
-    <section className="invite">
-      <span>Ta moitié n’est pas encore là</span>
-      <button className="link" onClick={share}>{Icon.share}{copied ? 'Lien copié' : 'Inviter'}</button>
-    </section>
+    <button className="invite-chip" onClick={share} title="Ta moitié n’est pas encore là">
+      {Icon.share}{copied ? 'Lien copié' : 'Inviter ta moitié'}
+    </button>
   );
 }
