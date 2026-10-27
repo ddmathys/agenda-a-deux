@@ -34,7 +34,7 @@ const REMIND_DAY = [
   { v: 60, label: 'Le matin à 8 h' },
 ];
 
-export type SheetMode = { kind: 'new'; preset?: 'bday' | 'vac' } | { kind: 'task'; task: Task } | { kind: 'event'; ev: EventItem };
+export type SheetMode = { kind: 'new'; preset?: 'bday' | 'vac'; date?: string } | { kind: 'task'; task: Task } | { kind: 'event'; ev: EventItem };
 
 interface Props {
   h: Household;
@@ -52,7 +52,7 @@ export function AddSheet({ h, me, events, mode, onClose }: Props) {
   const preset = mode.kind === 'new' ? mode.preset : undefined;
   const [kind, setKind] = useState<'task' | 'event'>(ev || preset ? 'event' : 'task');
   const [title, setTitle] = useState(task?.title ?? ev?.title ?? '');
-  const [date, setDate] = useState(task?.due ?? ev?.date ?? '');
+  const [date, setDate] = useState(task?.due ?? ev?.date ?? (mode.kind === 'new' ? mode.date : undefined) ?? '');
   const [start, setStart] = useState(task?.time ?? ev?.start ?? '');
   const [end, setEnd] = useState(ev?.end ?? '');
   const [place, setPlace] = useState(ev?.place ?? '');

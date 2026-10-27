@@ -1,11 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { disablePush, enablePush, pushState, type PushState } from '../push';
-import { addDays, cap, DAYS, fromKey, keyOf, mondayOf, MONTHS, shortDate, todayKey } from '../dates';
+import { addDays, cap, DAYS, dueLabel, fromKey, keyOf, mondayOf, MONTHS, MONTHS_SHORT, shortDate } from '../dates';
 import { ageOn, eventsOn, stayOn } from '../birthday';
 import { addTask, toggleTask } from '../data';
 import { ownerChoices, partnerUid, toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
-import { Avatar, BirthdayMark, Check, DueChip, Empty, Icon, RepeatMark, VacationMark, type Tab } from '../ui';
+import { Avatar, BirthdayMark, Check, Icon, RepeatMark, VacationMark, type Tab } from '../ui';
 import { Countdowns } from '../widgets';
 
 const LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -16,23 +16,66 @@ const longDate = (k: string) => {
   return `${cap(DAYS[d.getDay()])} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 };
 
+/** « mercredi 28 oct. » */
+const dayDate = (k: string) => {
+  const d = fromKey(k);
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`;
+};
+
+const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const hm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+/** Fin d'un rendez-vous en minutes : l'heure de fin, sinon une heure après le début. */
+const endMins = (e: EventItem) => (e.end && mins(e.end) > mins(e.start!) ? mins(e.end) : mins(e.start!) + 60);
+
+/** « Dans 45 min », « Dans 2 h 05 » */
+function inLabel(m: number) {
+  if (m < 60) return `Dans ${Math.max(1, m)} min`;
+  const r = m % 60;
+  return `Dans ${Math.floor(m / 60)} h${r ? ` ${String(r).padStart(2, '0')}` : ''}`;
+}
+
+/** L'heure qui avance : rafraîchie chaque demi-minute et au retour dans l'app. */
+function useNow() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    const id = setInterval(tick, 30000);
+    const vis = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', vis);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', vis);
+    };
+  }, []);
+  return now;
+}
+
+const byStart = (a: EventItem, b: EventItem) => (a.start ?? '').localeCompare(b.start ?? '');
+
 interface Props {
   h: Household;
   me: string;
   events: EventItem[];
   tasks: Task[];
-  onTab: (t: Tab) => void;
+  onTab: (t: Tab, day?: string) => void;
+  onAdd: (date: string) => void;
+  onShare: () => void;
   onEditTask: (t: Task) => void;
   onEditEvent: (e: EventItem) => void;
 }
 
-export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: Props) {
+export function Today({ h, me, events, tasks, onTab, onAdd, onShare, onEditTask, onEditEvent }: Props) {
   const [filter, setFilter] = useState<string>('all');
   const [draft, setDraft] = useState('');
-  const today = todayKey();
+  const now = useNow();
+  const today = keyOf(now);
+  const tomorrow = keyOf(addDays(now, 1));
+  const nowM = now.getHours() * 60 + now.getMinutes();
   const keep = (o: string) => filter === 'all' || o === filter;
 
-  const monday = mondayOf(new Date());
+  const monday = mondayOf(now);
   const week = Array.from({ length: 7 }, (_, i) => keyOf(addDays(monday, i)));
   const ownersOn = (k: string) => {
     const set = new Set<string>();
@@ -40,13 +83,16 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
     tasks.filter((t) => t.due === k && !t.done).forEach((t) => set.add(t.owner));
     return [...set].slice(0, 3);
   };
-  const evs = eventsOn(events, today).sort((a, b) => (a.start ?? '').localeCompare(b.start ?? ''));
 
-  const shownEvents = evs.filter((e) => keep(e.owner));
-  // Toutes les tâches ouvertes (+ celles cochées aujourd'hui) : en retard / du jour, puis datées, puis sans date.
-  const shownTasks = tasks
-    .filter((t) => keep(t.owner) && (!t.done || t.doneOn === today))
-    .sort((a, b) => Number(a.done) - Number(b.done) || (a.due ?? '9999').localeCompare(b.due ?? '9999') || (a.time ?? '99').localeCompare(b.time ?? '99'));
+  const evToday = eventsOn(events, today).filter((e) => keep(e.owner)).sort(byStart);
+  const evTomorrow = eventsOn(events, tomorrow).filter((e) => keep(e.owner)).sort(byStart);
+  const visible = (t: Task) => keep(t.owner) && (!t.done || t.doneOn === today);
+  const taskOrder = (a: Task, b: Task) =>
+    Number(a.done) - Number(b.done) || (a.due ?? '9999').localeCompare(b.due ?? '9999') || (a.time ?? '99').localeCompare(b.time ?? '99');
+  // Aujourd'hui : en retard + du jour ; Demain : celles du lendemain ; le reste dans « À faire ».
+  const tkToday = tasks.filter((t) => visible(t) && !!t.due && t.due <= today).sort(taskOrder);
+  const tkTomorrow = tasks.filter((t) => visible(t) && t.due === tomorrow).sort(taskOrder);
+  const tkOther = tasks.filter((t) => visible(t) && (!t.due || t.due > tomorrow)).sort(taskOrder);
 
   const add = async (e: FormEvent) => {
     e.preventDefault();
@@ -105,25 +151,30 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
         <span className="deco-b" aria-hidden="true" />
         <div className="col gap2 rel">
           <span className="hello-date">{longDate(today)}</span>
-          <h1 className="hello-title">{new Date().getHours() >= 18 || new Date().getHours() < 5 ? 'Bonsoir' : 'Bonjour'}<br />{h.people[me]?.name}</h1>
+          <h1 className="hello-title">{now.getHours() >= 18 || now.getHours() < 5 ? 'Bonsoir' : 'Bonjour'}<br />{h.people[me]?.name}</h1>
           <span className="version">{__APP_VERSION__}</span>
         </div>
         <div className="col rel hello-side">
           <div className="row center gap8">
-          <button
-            className={push === 'on' ? 'bell on' : 'bell'}
-            onClick={togglePush}
-            aria-pressed={push === 'on'}
-            aria-label={push === 'on' ? 'Rappels activés, toucher pour les couper' : 'Activer les rappels'}
-          >
-            {Icon.bell}
-          </button>
-          <div className="row hello-avs">
-            <Avatar h={h} owner={me} size={40} />
-            {partner && <span className="overlap"><Avatar h={h} owner={partner} size={40} /></span>}
+            <button className="bell" onClick={onShare} aria-label="Partager l’app ou inviter">{Icon.share}</button>
+            <button
+              className={push === 'on' ? 'bell on' : 'bell'}
+              onClick={togglePush}
+              aria-pressed={push === 'on'}
+              aria-label={push === 'on' ? 'Rappels activés, toucher pour les couper' : 'Activer les rappels'}
+            >
+              {Icon.bell}
+            </button>
+            <div className="row hello-avs">
+              <Avatar h={h} owner={me} size={40} />
+              {partner && <span className="overlap"><Avatar h={h} owner={partner} size={40} /></span>}
+            </div>
           </div>
-          </div>
-          {!partner && <Invite code={h.id} />}
+          {!partner && (
+            <button className="invite-chip" onClick={onShare} title="Ta moitié n’est pas encore là">
+              {Icon.share}Inviter ta moitié
+            </button>
+          )}
         </div>
       </header>
 
@@ -142,19 +193,7 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
       )}
       {pushNote && <p className="push-note" role="status">{pushNote}</p>}
 
-      <div className="strip" role="group" aria-label="Cette semaine">
-        {week.map((k, i) => (
-          <button key={k} className={k === today ? 'strip-day on' : k < today ? 'strip-day past' : 'strip-day'} onClick={() => onTab('upcoming')} aria-label={`Voir le ${shortDate(k)}`}>
-            <span className="strip-l">{LETTERS[i]}</span>
-            <span className="strip-n">{fromKey(k).getDate()}</span>
-            <span className="dots">
-              {ownersOn(k).map((o) => <span key={o} className="dot" style={{ background: toneOf(h, o).c }} />)}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <Countdowns h={h} me={me} events={events} today={today} onOpen={onEditEvent} onYear={() => onTab('year')} onBirthdays={() => onTab('birthdays')} onVacations={() => onTab('vacations')} />
+      <Focus h={h} today={evToday} tomorrow={evTomorrow} nowM={nowM} tasksLeft={tkToday.filter((t) => !t.done).length} onOpen={onEditEvent} onAdd={() => onAdd(today)} />
 
       <div className="pills" role="group" aria-label="Filtrer par personne">
         {pills.map((p) => {
@@ -169,48 +208,49 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
         })}
       </div>
 
-      <section className="col gap10">
-        <div className="section-head">
-          <h2>Au programme</h2>
-          <button className="link" onClick={() => onTab('upcoming')}>Toute la semaine</button>
-        </div>
-        {shownEvents.length === 0 && <Empty>Rien au programme aujourd’hui.</Empty>}
-        {shownEvents.map((e) => {
-          const t = toneOf(h, e.owner);
-          return (
-            <div key={e.id} className="row">
-              <button className="ev-card" style={{ background: t.s }} onClick={() => onEditEvent(e)}>
-                <span className="ev-hour">{e.start ?? 'Jour'}</span>
-                <span className="col grow min0 gap2">
-                  <span className="ev-title row gap6 center">
-                    <span className="ell">{e.title}</span>
-                    {e.seriesId && <RepeatMark />}
-                    {e.birthday && <BirthdayMark />}
-                    {e.vacation && <VacationMark />}
-                  </span>
-                  <span className="ev-meta">{[e.birthday && ageOn(e, today), e.dateEnd && stayOn(e, today), e.end && `jusqu’à ${e.end}`, e.place].filter(Boolean).join(' · ') || t.name}</span>
-                </span>
-                <Avatar h={h} owner={e.owner} />
-              </button>
-            </div>
-          );
-        })}
-      </section>
+      <DayPlan
+        h={h} k={today} title="Aujourd’hui" main evs={evToday} tks={tkToday} nowM={nowM} nowHM={hm(now)} today={today}
+        onAdd={() => onAdd(today)} onEditEvent={onEditEvent} onEditTask={onEditTask}
+      />
+      <DayPlan
+        h={h} k={tomorrow} title="Demain" evs={evTomorrow} tks={tkTomorrow} today={today}
+        onAdd={() => onAdd(tomorrow)} onEditEvent={onEditEvent} onEditTask={onEditTask}
+      />
 
       <section className="col gap10">
         <div className="section-head">
-          <h2>Tâches</h2>
+          <h2>Cette semaine</h2>
+          <button className="link" onClick={() => onTab('upcoming')}>Tout voir</button>
+        </div>
+        <div className="strip" role="group" aria-label="Cette semaine">
+          {week.map((k, i) => (
+            <button key={k} className={k === today ? 'strip-day on' : k < today ? 'strip-day past' : 'strip-day'} onClick={() => onTab('upcoming', k)} aria-label={`Voir le ${shortDate(k)}`}>
+              <span className="strip-l">{LETTERS[i]}</span>
+              <span className="strip-n">{fromKey(k).getDate()}</span>
+              <span className="dots">
+                {ownersOn(k).map((o) => <span key={o} className="dot" style={{ background: toneOf(h, o).c }} />)}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <Countdowns h={h} me={me} events={events} today={today} onOpen={onEditEvent} onYear={() => onTab('year')} onBirthdays={() => onTab('birthdays')} onVacations={() => onTab('vacations')} />
+
+      <section className="col gap10">
+        <div className="section-head">
+          <h2>À faire</h2>
+          <span className="sub">sans date ou plus tard</span>
         </div>
         <div className="card-list">
-          {shownTasks.length === 0 && <Empty>Rien à faire. Profitez-en.</Empty>}
-          {shownTasks.map((t) => (
+          {tkOther.map((t) => (
             <div key={t.id} className="task-row">
               <Check h={h} task={t} onToggle={() => toggleTask(h.id, t)} />
               <button className={t.done ? 'task-title done' : 'task-title'} onClick={() => onEditTask(t)}>{t.title}</button>
-              <DueChip h={h} task={t} personTone={t.due === today} />
+              {t.due && <span className="chip" style={{ background: '#FFF3CC', color: '#7A5500' }}>{dueLabel(t.due)}</span>}
             </div>
           ))}
-          <form className="add-inline" onSubmit={add}>
+          <form className={tkOther.length ? 'add-inline' : 'add-inline first'} onSubmit={add}>
             <span aria-hidden="true">{Icon.plusSm}</span>
             <label className="sr-only" htmlFor="today-task">Nouvelle tâche</label>
             <input id="today-task" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Ajouter une tâche…" enterKeyHint="done" />
@@ -221,24 +261,148 @@ export function Today({ h, me, events, tasks, onTab, onEditTask, onEditEvent }: 
   );
 }
 
-function Invite({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false);
-  const text = `Rejoins notre agenda à deux : ouvre ${location.origin} et entre le code ${code}`;
-  const share = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'Agenda à deux', text });
-      } catch {
-        /* partage annulé */
-      }
-    } else {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-    }
+/**
+ * La grande carte du haut : ce qui se passe maintenant, ou le prochain rendez-vous
+ * avec le temps qu'il reste. En fin de journée, elle annonce le premier rendez-vous de demain.
+ */
+function Focus({ h, today, tomorrow, nowM, tasksLeft, onOpen, onAdd }: {
+  h: Household; today: EventItem[]; tomorrow: EventItem[]; nowM: number; tasksLeft: number;
+  onOpen: (e: EventItem) => void; onAdd: () => void;
+}) {
+  const timed = today.filter((e) => e.start);
+  const cur = timed.find((e) => mins(e.start!) <= nowM && nowM < endMins(e));
+  const next = timed.find((e) => mins(e.start!) > nowM);
+  const first = tomorrow.find((e) => e.start) ?? tomorrow[0];
+  const where = (e: EventItem) => [e.place, toneOf(h, e.owner).name].filter(Boolean).join(' · ');
+
+  const card = (e: EventItem, kicker: string, meta: string, progress?: number) => {
+    const t = toneOf(h, e.owner);
+    return (
+      <button className="focus" style={{ background: t.c, color: t.on }} onClick={() => onOpen(e)}>
+        <span className="focus-kicker">{kicker}</span>
+        <span className="focus-title">{e.title}</span>
+        <span className="focus-meta">{meta}</span>
+        {progress !== undefined && (
+          <span className="focus-bar" aria-hidden="true"><span style={{ width: `${Math.round(progress * 100)}%` }} /></span>
+        )}
+      </button>
+    );
   };
+
+  if (cur) {
+    const s = mins(cur.start!);
+    const left = endMins(cur) - nowM;
+    return card(
+      cur,
+      `En ce moment · ${inLabel(left).replace('Dans', 'encore')}`,
+      [`${cur.start}${cur.end ? `–${cur.end}` : ''}`, where(cur)].join(' · '),
+      (nowM - s) / (endMins(cur) - s),
+    );
+  }
+  if (next) {
+    return card(next, `${inLabel(mins(next.start!) - nowM)} · à ${next.start}`, [next.end && `jusqu’à ${next.end}`, where(next)].filter(Boolean).join(' · '));
+  }
+  if (first && nowM >= 17 * 60) {
+    return card(first, first.start ? `Demain à ${first.start}` : 'Demain', where(first));
+  }
   return (
-    <button className="invite-chip" onClick={share} title="Ta moitié n’est pas encore là">
-      {Icon.share}{copied ? 'Lien copié' : 'Inviter ta moitié'}
-    </button>
+    <div className="focus calm">
+      <span className="focus-kicker">{timed.length ? 'Plus de rendez-vous aujourd’hui' : 'Pas de rendez-vous aujourd’hui'}</span>
+      <span className="focus-title">{tasksLeft ? `${tasksLeft} ${tasksLeft > 1 ? 'tâches' : 'tâche'} pour aujourd’hui` : 'Journée libre ✨'}</span>
+      <span className="focus-meta">
+        {first ? `Demain : ${first.title}${first.start ? ` à ${first.start}` : ''}` : 'Rien de prévu demain non plus.'}
+      </span>
+      <button className="focus-add" onClick={onAdd}>{Icon.plusSm}Ajouter</button>
+    </div>
+  );
+}
+
+/** Le programme d'un jour : rendez-vous dans l'ordre, la ligne « maintenant », puis les tâches. */
+function DayPlan({ h, k, title, main = false, evs, tks, nowM, nowHM, today, onAdd, onEditEvent, onEditTask }: {
+  h: Household; k: string; title: string; main?: boolean; evs: EventItem[]; tks: Task[]; nowM?: number; nowHM?: string; today: string;
+  onAdd: () => void; onEditEvent: (e: EventItem) => void; onEditTask: (t: Task) => void;
+}) {
+  const allDay = evs.filter((e) => !e.start);
+  const timed = evs.filter((e) => e.start);
+  const status = (e: EventItem) => {
+    if (nowM === undefined || !e.start) return '';
+    if (endMins(e) <= nowM) return 'past';
+    return mins(e.start) <= nowM ? 'now' : '';
+  };
+  // La ligne « maintenant » se place avant le premier rendez-vous pas encore terminé.
+  let nowAt = -1;
+  if (nowM !== undefined && timed.length) {
+    nowAt = timed.findIndex((e) => endMins(e) > nowM);
+    if (nowAt === -1) nowAt = timed.length;
+  }
+  const open = tks.filter((t) => !t.done).length;
+  const count = [evs.length && `${evs.length} rendez-vous`, open && `${open} ${open > 1 ? 'tâches' : 'tâche'}`].filter(Boolean).join(' · ');
+
+  const evRow = (e: EventItem) => {
+    const t = toneOf(h, e.owner);
+    const st = status(e);
+    return (
+      <button key={e.id} className={`plan-row ${st}`} style={st === 'now' ? { background: t.s } : undefined} onClick={() => onEditEvent(e)}>
+        <span className="plan-time">
+          <b>{e.start ?? 'Jour'}</b>
+          {e.end && <small>{e.end}</small>}
+        </span>
+        <span className="plan-bar" style={{ background: t.c }} />
+        <span className="col grow min0 gap2">
+          <span className="ev-title row gap6 center">
+            <span className="ell">{e.title}</span>
+            {e.seriesId && <RepeatMark />}
+            {e.birthday && <BirthdayMark />}
+            {e.vacation && <VacationMark />}
+          </span>
+          <span className="ev-meta">{[e.birthday && ageOn(e, k), e.dateEnd && stayOn(e, k), e.place].filter(Boolean).join(' · ') || t.name}</span>
+        </span>
+        {st === 'now' ? <span className="now-chip">En cours</span> : <Avatar h={h} owner={e.owner} size={28} soft />}
+      </button>
+    );
+  };
+
+  return (
+    <section className={main ? 'plan main' : 'plan'}>
+      <div className="plan-head">
+        <div className="col min0">
+          <h2>{title}</h2>
+          <span className="plan-date">{dayDate(k)}{count && ` · ${count}`}</span>
+        </div>
+        <button className="plan-add" onClick={onAdd} aria-label={`Ajouter pour ${title.toLowerCase()}`}>{Icon.plusSm}</button>
+      </div>
+      <div className="plan-card">
+        {evs.length + tks.length === 0 && (
+          <button className="plan-empty" onClick={onAdd}>Rien de prévu. <span>Ajouter quelque chose</span></button>
+        )}
+        {allDay.map(evRow)}
+        {timed.map((e, i) => [i === nowAt && <NowLine key="now" hm={nowHM!} />, evRow(e)])}
+        {nowAt === timed.length && <NowLine hm={nowHM!} />}
+        {tks.length > 0 && evs.length > 0 && <div className="plan-sep">À faire</div>}
+        {tks.map((t) => {
+          const late = !!t.due && t.due < today && !t.done;
+          const tone = toneOf(h, t.owner);
+          return (
+            <div key={t.id} className="task-row">
+              <Check h={h} task={t} onToggle={() => toggleTask(h.id, t)} />
+              <button className={t.done ? 'task-title done' : 'task-title'} onClick={() => onEditTask(t)}>{t.title}</button>
+              {late ? (
+                <span className="chip" style={{ background: '#FFE3E7', color: '#A81D33' }}>En retard</span>
+              ) : (
+                <span className="chip" style={{ background: tone.s, color: tone.t }}>{t.time ?? tone.name}</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function NowLine({ hm }: { hm: string }) {
+  return (
+    <div className="now-line" role="note" aria-label={`Il est ${hm}`}>
+      <span>{hm}</span>
+    </div>
   );
 }

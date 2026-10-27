@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import type { User } from 'firebase/auth';
 import { createHousehold, joinHousehold, resetPassword, signIn, signInEmail, signUpEmail } from '../data';
+import { clearInvite, pendingInvite } from '../invite';
 
 const AUTH_ERRORS: Record<string, string> = {
   'auth/invalid-credential': 'E-mail ou mot de passe incorrect.',
@@ -60,7 +61,11 @@ export function Login() {
   return (
     <div className="welcome">
       <Brand />
-      <p className="welcome-text">Votre agenda et vos listes, partagés à deux, synchronisés sur vos deux téléphones.</p>
+      {pendingInvite() ? (
+        <p className="invite-banner">💌 Tu as reçu une invitation. Connecte-toi (ou crée ton compte) et tu rejoindras directement votre agenda.</p>
+      ) : (
+        <p className="welcome-text">Votre agenda et vos listes, partagés à deux, synchronisés sur vos deux téléphones.</p>
+      )}
       <button className="btn-dark" onClick={() => run(signIn)} disabled={busy}>Continuer avec Google</button>
 
       <div className="or" aria-hidden="true"><span>ou avec ton e-mail</span></div>
@@ -105,7 +110,8 @@ export function Login() {
 
 export function Setup({ user }: { user: User }) {
   const [name, setName] = useState(user.displayName?.split(' ')[0] ?? '');
-  const [code, setCode] = useState('');
+  const invited = pendingInvite();
+  const [code, setCode] = useState(invited);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -118,6 +124,7 @@ export function Setup({ user }: { user: User }) {
     setError('');
     try {
       await fn();
+      clearInvite();
     } catch {
       setError(fail);
       setBusy(false);
@@ -129,6 +136,16 @@ export function Setup({ user }: { user: User }) {
     run(() => joinHousehold(user.uid, name.trim(), user.email ?? '', code), 'Code introuvable ou agenda déjà complet.');
   };
 
+  const joinCard = (
+    <form className={invited ? 'white-card col gap10 invited' : 'white-card col gap10'} onSubmit={join}>
+      <h2 className="h18">{invited ? '💌 Tu as été invité·e' : 'Tu as reçu un code ?'}</h2>
+      {invited && <p className="muted">Ton invitation est prête : touche « Rejoindre » pour arriver dans votre agenda.</p>}
+      <label className="sr-only" htmlFor="code">Code d’invitation</label>
+      <input id="code" className="big-input code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="ABCD2345" autoCapitalize="characters" />
+      <button className={invited ? 'btn-dark' : 'btn-outline'} type="submit" disabled={busy || code.replace(/\W/g, '').length < 8}>Rejoindre</button>
+    </form>
+  );
+
   return (
     <div className="welcome">
       <Brand />
@@ -137,20 +154,17 @@ export function Setup({ user }: { user: User }) {
         <input className="big-input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" />
       </label>
 
+      {invited && joinCard}
+
       <div className="white-card col gap10">
-        <h2 className="h18">Tu commences ?</h2>
+        <h2 className="h18">{invited ? 'Ou bien, ton propre agenda ?' : 'Tu commences ?'}</h2>
         <p className="muted">Crée votre agenda, puis envoie le code à ta moitié.</p>
         <button className="btn-dark" disabled={busy} onClick={() => run(() => createHousehold(user.uid, name.trim(), user.email ?? ''), 'Création impossible. Réessaie.')}>
           Créer notre agenda
         </button>
       </div>
 
-      <form className="white-card col gap10" onSubmit={join}>
-        <h2 className="h18">Tu as reçu un code ?</h2>
-        <label className="sr-only" htmlFor="code">Code d’invitation</label>
-        <input id="code" className="big-input code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="ABCD2345" autoCapitalize="characters" />
-        <button className="btn-outline" type="submit" disabled={busy || code.replace(/\W/g, '').length < 8}>Rejoindre</button>
-      </form>
+      {!invited && joinCard}
 
       {error && <p className="error" role="alert">{error}</p>}
     </div>

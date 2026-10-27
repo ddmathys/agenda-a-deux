@@ -10,16 +10,17 @@ interface Props {
   h: Household;
   events: EventItem[];
   tasks: Task[];
+  day?: string; // jour choisi depuis Aujourd'hui
   onEditTask: (t: Task) => void;
   onEditEvent: (e: EventItem) => void;
 }
 
 const LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
-export function Upcoming({ h, events, tasks, onEditTask, onEditEvent }: Props) {
+export function Upcoming({ h, events, tasks, day, onEditTask, onEditEvent }: Props) {
   const today = todayKey();
-  const [sel, setSel] = useState(today);
-  const [monday, setMonday] = useState(() => mondayOf(new Date()));
+  const [sel, setSel] = useState(day ?? today);
+  const [monday, setMonday] = useState(() => mondayOf(day ? fromKey(day) : new Date()));
 
   const ownersOn = (k: string) => {
     const set = new Set<string>();

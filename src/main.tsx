@@ -2,7 +2,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { registerSW } from 'virtual:pwa-register';
+import { captureInvite } from './invite';
 import './styles.css';
+
+// Lien d'invitation (?rejoindre=CODE) : on garde le code avant tout le reste.
+captureInvite();
 
 // Nouvelle version en ligne → la page se recharge toute seule.
 // On revérifie à chaque retour dans l'app (l'appli Android reste souvent ouverte en arrière-plan).
