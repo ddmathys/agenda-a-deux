@@ -117,3 +117,5 @@ export const newTask = onDocumentCreated(
   { document: 'households/{hid}/tasks/{id}', region: REGION, secrets: [VAPID_PRIVATE], memory: '256MiB' },
   (ev) => announce(ev.params.hid, ev.data?.data() ?? {}, 'task', ev.params.id),
 );
+
+export { suggestIdeas } from './ideas.js';

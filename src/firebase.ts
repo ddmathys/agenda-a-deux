@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { getFunctions } from 'firebase/functions';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 
 // Configuration web Firebase : ces valeurs sont publiques par nature,
@@ -19,3 +20,6 @@ export const auth = getAuth(app);
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 });
+
+// Fonctions serveur (idées de sorties), à Zurich comme les données.
+export const functions = getFunctions(app, 'europe-west6');

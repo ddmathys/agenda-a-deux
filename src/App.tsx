@@ -9,6 +9,8 @@ import { Birthdays } from './screens/Birthdays';
 import { Vacations } from './screens/Vacations';
 import { Login, Setup } from './screens/Welcome';
 import { ShareSheet } from './screens/Share';
+import { IdeasSheet, type Slot } from './screens/Ideas';
+import { useForecast } from './weather';
 import { clearInvite } from './invite';
 import type { EventItem, Household, Task } from './types';
 import { Nav, scrollToTop, type Tab } from './ui';
@@ -29,6 +31,8 @@ function Shell({ h, user }: { h: Household; user: User }) {
   const [sheet, setSheet] = useState<SheetMode | null>(null);
   const [sharing, setSharing] = useState(false);
   const [upDay, setUpDay] = useState<string | undefined>(undefined);
+  const [ideas, setIdeas] = useState<{ day: string; slot: Slot } | null>(null);
+  const forecast = useForecast(h.home);
   const events = useEvents(h.id);
   const tasks = useTasks(h.id);
   const me = user.uid;
@@ -49,7 +53,7 @@ function Shell({ h, user }: { h: Household; user: User }) {
 
   return (
     <div className="app">
-      {tab === 'today' && <Today h={h} me={me} events={events} tasks={tasks} onTab={go} onAdd={(date) => setSheet({ kind: 'new', date })} onShare={() => setSharing(true)} {...edit} />}
+      {tab === 'today' && <Today h={h} me={me} events={events} tasks={tasks} onTab={go} onAdd={(date) => setSheet({ kind: 'new', date })} onShare={() => setSharing(true)} forecast={forecast} onIdeas={(day, slot) => setIdeas({ day, slot })} {...edit} />}
       {tab === 'upcoming' && <Upcoming key={upDay ?? 'today'} h={h} events={events} tasks={tasks} day={upDay} {...edit} />}
       {tab === 'year' && <Year h={h} me={me} events={events} tasks={tasks} {...edit} />}
       {tab === 'birthdays' && (
@@ -60,6 +64,7 @@ function Shell({ h, user }: { h: Household; user: User }) {
       )}
       <Nav tab={tab} onTab={(t) => go(t)} onAdd={() => setSheet({ kind: 'new' })} />
       {sharing && <ShareSheet h={h} me={me} onClose={() => setSharing(false)} />}
+      {ideas && <IdeasSheet key={ideas.day + ideas.slot} h={h} me={me} day={ideas.day} slot={ideas.slot} forecast={forecast} onClose={() => setIdeas(null)} />}
       {sheet && (
         <AddSheet
           key={sheet.kind === 'new' ? 'new' : sheet.kind === 'task' ? sheet.task.id : sheet.ev.id}

@@ -8,7 +8,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { todayKey } from './dates';
-import { DEFAULT_LISTS, type EventItem, type Household, type Task } from './types';
+import { DEFAULT_LISTS, type EventItem, type Home, type Household, type Ideas, type Task } from './types';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -65,7 +65,7 @@ export function useHousehold(uid: string | undefined) {
       doc(db, 'households', hid),
       (snap) => {
         const d = snap.data();
-        setHouse(d ? { id: snap.id, members: d.members, people: d.people, lists: d.lists ?? DEFAULT_LISTS } : null);
+        setHouse(d ? { id: snap.id, members: d.members, people: d.people, lists: d.lists ?? DEFAULT_LISTS, home: d.home } : null);
       },
       () => setHouse(null),
     );
@@ -110,6 +110,22 @@ export async function joinHousehold(uid: string, name: string, email: string, ra
   });
   await setDoc(doc(db, 'users', uid), { hid: code });
 }
+
+export const setHome = (hid: string, home: Home) => updateDoc(doc(db, 'households', hid), { home });
+
+// --- Idées de sorties ---
+
+/** Les idées d'un jour (null tant qu'il n'y en a pas). */
+export function useIdeas(hid: string, day: string) {
+  const [ideas, setIdeas] = useState<Ideas | null | undefined>(undefined);
+  useEffect(
+    () => onSnapshot(doc(db, 'households', hid, 'ideas', day), (snap) => setIdeas(snap.exists() ? (snap.data() as Ideas) : null), () => setIdeas(null)),
+    [hid, day],
+  );
+  return ideas;
+}
+
+export const chooseIdea = (hid: string, day: string, i: number) => updateDoc(doc(db, 'households', hid, 'ideas', day), { chosen: i });
 
 // --- Événements et tâches ---
 

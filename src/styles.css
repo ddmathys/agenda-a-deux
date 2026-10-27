@@ -678,3 +678,60 @@ h1, h2, .sheet-title, .page-head h1, .section-head h2, .h18, .h19, .h20 { font-f
   margin: 0; padding: 14px 16px; border-radius: 20px; background: #FFE4D8; color: #7A2A08; font-size: 15px; font-weight: 700; line-height: 1.4;
 }
 .white-card.invited { box-shadow: 0 0 0 2.5px var(--coral), var(--shadow); }
+
+/* Météo */
+.hello-weather { font-size: 13px; font-weight: 800; color: var(--muted2); }
+.plan-weather { margin-left: 8px; font-family: var(--body); font-size: 14px; font-weight: 800; color: var(--muted2); vertical-align: middle; }
+
+/* Carte vivante : week-end, soirée libre */
+.moment {
+  position: relative; overflow: hidden; border-radius: 28px; padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 6px;
+  color: var(--ink); animation: rise 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  background-size: 200% 200%;
+}
+.moment.sunny { background-image: linear-gradient(135deg, #FFE27A 0%, #FFB38A 50%, #FF8FB1 100%); animation: rise 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) both, sky 9s ease-in-out infinite; }
+.moment.grey { background-image: linear-gradient(135deg, #DCD3FF 0%, #C9E4FF 55%, #D5F5F1 100%); animation: rise 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) both, sky 11s ease-in-out infinite; }
+@keyframes sky { 50% { background-position: 100% 100%; } }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+.moment-float {
+  position: absolute; right: 14px; top: 8px; font-size: 54px; line-height: 1; filter: drop-shadow(0 6px 10px rgba(43, 35, 64, 0.18));
+  animation: bob 4s ease-in-out infinite;
+}
+@keyframes bob { 50% { transform: translateY(-6px) rotate(-6deg); } }
+@media (prefers-reduced-motion: reduce) { .moment, .moment-float, .idea { animation: none !important; } }
+.moment-kicker { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(43, 35, 64, 0.7); }
+.moment-title { font-family: var(--display); font-size: 26px; font-weight: 600; line-height: 1.1; padding-right: 64px; }
+.moment-mood { margin: 0 0 4px; font-size: 15px; font-weight: 700; line-height: 1.35; padding-right: 40px; }
+.moment-day {
+  display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 20px; background: rgba(255, 255, 255, 0.72);
+}
+.moment-dname { font-family: var(--display); font-size: 17px; font-weight: 600; }
+.moment-dsub { font-size: 13px; font-weight: 700; color: var(--muted2); margin: 0; }
+.moment-btn {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 14px; border: none; border-radius: 999px;
+  background: var(--ink); color: var(--white); font-size: 14px; font-weight: 800;
+}
+.moment-input { flex-grow: 1; min-width: 0; height: 44px; border: none; border-radius: 999px; padding: 0 16px; font-size: 16px; font-weight: 600; outline: none; background: rgba(255, 255, 255, 0.9); }
+.moment-place { text-align: left; border: none; border-radius: 16px; padding: 10px 14px; background: rgba(255, 255, 255, 0.85); font-size: 15px; }
+.moment-place span { color: var(--muted); font-size: 13px; font-weight: 600; }
+
+/* Feuille d'idées */
+.idea {
+  display: flex; gap: 12px; padding: 14px; border-radius: 24px; background: var(--white); box-shadow: var(--shadow);
+  animation: rise 0.45s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+.idea.chosen { box-shadow: 0 0 0 2.5px var(--turq), var(--shadow); }
+.idea-emoji { font-size: 34px; line-height: 1; width: 44px; flex-shrink: 0; text-align: center; }
+.idea-title { margin: 0; font-family: var(--display); font-size: 18px; font-weight: 600; line-height: 1.2; }
+.idea-why { margin: 0; font-size: 14px; font-weight: 600; color: var(--muted2); line-height: 1.35; }
+.idea-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; padding: 4px 9px; border-radius: 999px; background: #F6EDF4; color: var(--muted2); }
+.idea-chip svg { width: 12px; height: 12px; }
+.idea-go {
+  align-self: flex-start; margin-top: 6px; min-height: 42px; padding: 0 16px; border: none; border-radius: 999px;
+  background: var(--coral); color: #3A1400; font-size: 14.5px; font-weight: 800;
+}
+.idea-go.on { background: #D5F5F1; color: #0B5F57; opacity: 1; }
+.idea-done { margin: 0; padding: 12px 14px; border-radius: 18px; background: #D5F5F1; color: #0B5F57; font-weight: 800; animation: rise 0.3s both; }
+.idea-wait { display: flex; align-items: center; gap: 12px; padding: 18px; border-radius: 22px; background: var(--white); font-weight: 700; color: var(--muted2); }
+.idea-wait-dot { font-size: 30px; animation: spin 2.4s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

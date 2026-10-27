@@ -7,6 +7,8 @@ import { ownerChoices, partnerUid, toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
 import { Avatar, BirthdayMark, Check, Icon, RepeatMark, VacationMark, type Tab } from '../ui';
 import { Countdowns } from '../widgets';
+import { MomentCard, momentPlan, type Slot } from './Ideas';
+import { wmo, type DayWeather, type Forecast } from '../weather';
 
 const LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
@@ -62,11 +64,13 @@ interface Props {
   onTab: (t: Tab, day?: string) => void;
   onAdd: (date: string) => void;
   onShare: () => void;
+  forecast: Forecast | null;
+  onIdeas: (day: string, slot: Slot) => void;
   onEditTask: (t: Task) => void;
   onEditEvent: (e: EventItem) => void;
 }
 
-export function Today({ h, me, events, tasks, onTab, onAdd, onShare, onEditTask, onEditEvent }: Props) {
+export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, onIdeas, onEditTask, onEditEvent }: Props) {
   const [filter, setFilter] = useState<string>('all');
   const [draft, setDraft] = useState('');
   const now = useNow();
@@ -151,6 +155,9 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, onEditTask,
         <span className="deco-b" aria-hidden="true" />
         <div className="col gap2 rel">
           <span className="hello-date">{longDate(today)}</span>
+          {forecast?.[today] && (
+            <span className="hello-weather">{wmo(forecast[today].code).emoji} {forecast[today].tmin}–{forecast[today].tmax}° à {h.home?.name}</span>
+          )}
           <h1 className="hello-title">{now.getHours() >= 18 || now.getHours() < 5 ? 'Bonsoir' : 'Bonjour'}<br />{h.people[me]?.name}</h1>
           <span className="version">{__APP_VERSION__}</span>
         </div>
@@ -193,7 +200,9 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, onEditTask,
       )}
       {pushNote && <p className="push-note" role="status">{pushNote}</p>}
 
-      <Focus h={h} today={evToday} tomorrow={evTomorrow} nowM={nowM} tasksLeft={tkToday.filter((t) => !t.done).length} onOpen={onEditEvent} onAdd={() => onAdd(today)} />
+      <Focus h={h} today={evToday} tomorrow={evTomorrow} nowM={nowM} tasksLeft={tkToday.filter((t) => !t.done).length} quiet={!!h.home && !!momentPlan(events, now)} onOpen={onEditEvent} onAdd={() => onAdd(today)} />
+
+      <MomentCard h={h} events={events} forecast={forecast} now={now} onIdeas={onIdeas} />
 
       <div className="pills" role="group" aria-label="Filtrer par personne">
         {pills.map((p) => {
@@ -209,11 +218,11 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, onEditTask,
       </div>
 
       <DayPlan
-        h={h} k={today} title="Aujourd’hui" main evs={evToday} tks={tkToday} nowM={nowM} nowHM={hm(now)} today={today}
+        h={h} k={today} title="Aujourd’hui" main evs={evToday} tks={tkToday} nowM={nowM} nowHM={hm(now)} today={today} weather={forecast?.[today]}
         onAdd={() => onAdd(today)} onEditEvent={onEditEvent} onEditTask={onEditTask}
       />
       <DayPlan
-        h={h} k={tomorrow} title="Demain" evs={evTomorrow} tks={tkTomorrow} today={today}
+        h={h} k={tomorrow} title="Demain" evs={evTomorrow} tks={tkTomorrow} today={today} weather={forecast?.[tomorrow]}
         onAdd={() => onAdd(tomorrow)} onEditEvent={onEditEvent} onEditTask={onEditTask}
       />
 
@@ -265,8 +274,8 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, onEditTask,
  * La grande carte du haut : ce qui se passe maintenant, ou le prochain rendez-vous
  * avec le temps qu'il reste. En fin de journée, elle annonce le premier rendez-vous de demain.
  */
-function Focus({ h, today, tomorrow, nowM, tasksLeft, onOpen, onAdd }: {
-  h: Household; today: EventItem[]; tomorrow: EventItem[]; nowM: number; tasksLeft: number;
+function Focus({ h, today, tomorrow, nowM, tasksLeft, quiet, onOpen, onAdd }: {
+  h: Household; today: EventItem[]; tomorrow: EventItem[]; nowM: number; tasksLeft: number; quiet: boolean;
   onOpen: (e: EventItem) => void; onAdd: () => void;
 }) {
   const timed = today.filter((e) => e.start);
@@ -305,6 +314,8 @@ function Focus({ h, today, tomorrow, nowM, tasksLeft, onOpen, onAdd }: {
   if (first && nowM >= 17 * 60) {
     return card(first, first.start ? `Demain à ${first.start}` : 'Demain', where(first));
   }
+  // Rien en cours : la carte vivante (week-end, soirée libre) prend la place.
+  if (quiet) return null;
   return (
     <div className="focus calm">
       <span className="focus-kicker">{timed.length ? 'Plus de rendez-vous aujourd’hui' : 'Pas de rendez-vous aujourd’hui'}</span>
@@ -318,8 +329,8 @@ function Focus({ h, today, tomorrow, nowM, tasksLeft, onOpen, onAdd }: {
 }
 
 /** Le programme d'un jour : rendez-vous dans l'ordre, la ligne « maintenant », puis les tâches. */
-function DayPlan({ h, k, title, main = false, evs, tks, nowM, nowHM, today, onAdd, onEditEvent, onEditTask }: {
-  h: Household; k: string; title: string; main?: boolean; evs: EventItem[]; tks: Task[]; nowM?: number; nowHM?: string; today: string;
+function DayPlan({ h, k, title, main = false, evs, tks, nowM, nowHM, today, weather, onAdd, onEditEvent, onEditTask }: {
+  h: Household; k: string; title: string; main?: boolean; evs: EventItem[]; tks: Task[]; nowM?: number; nowHM?: string; today: string; weather?: DayWeather;
   onAdd: () => void; onEditEvent: (e: EventItem) => void; onEditTask: (t: Task) => void;
 }) {
   const allDay = evs.filter((e) => !e.start);
@@ -366,7 +377,7 @@ function DayPlan({ h, k, title, main = false, evs, tks, nowM, nowHM, today, onAd
     <section className={main ? 'plan main' : 'plan'}>
       <div className="plan-head">
         <div className="col min0">
-          <h2>{title}</h2>
+          <h2>{title}{weather && <span className="plan-weather">{wmo(weather.code).emoji} {weather.tmax}°</span>}</h2>
           <span className="plan-date">{dayDate(k)}{count && ` · ${count}`}</span>
         </div>
         <button className="plan-add" onClick={onAdd} aria-label={`Ajouter pour ${title.toLowerCase()}`}>{Icon.plusSm}</button>

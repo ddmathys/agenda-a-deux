@@ -18,11 +18,40 @@ export interface ListDef {
   icon: string;
 }
 
+/** Où habite le couple : pour la météo et les idées de sorties. */
+export interface Home {
+  name: string;
+  region?: string;
+  lat: number;
+  lon: number;
+}
+
 export interface Household {
   id: string;
   members: string[];
   people: Record<string, Person>;
   lists: ListDef[];
+  home?: Home;
+}
+
+/** Une idée de sortie proposée pour un jour libre. */
+export interface Idea {
+  emoji: string;
+  title: string;
+  why: string;
+  place: string;
+  start: string | null;
+  duration: number; // minutes
+  cost: string;
+  indoor: boolean;
+}
+
+export interface Ideas {
+  day: string;
+  slot: 'day' | 'evening';
+  weather: { code: number; tmax: number; tmin: number; rain: number } | null;
+  items: Idea[];
+  chosen: number | null;
 }
 
 export interface EventItem {

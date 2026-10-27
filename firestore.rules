@@ -43,6 +43,10 @@ service cloud.firestore {
 
       match /{coll}/{docId} {
         allow read, write: if (coll == 'events' || coll == 'tasks') && isMember(hid);
+        // Idées de sorties : écrites par le serveur ; le couple ne peut que noter l'idée choisie.
+        allow read: if coll == 'ideas' && isMember(hid);
+        allow update: if coll == 'ideas' && isMember(hid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['chosen']);
       }
     }
   }
