@@ -50,13 +50,25 @@ export function useHousehold(uid: string | undefined) {
   const [hid, setHid] = useState<string | null | undefined>(undefined);
   const [house, setHouse] = useState<Household | null | undefined>(undefined);
 
+  // Repart de zéro à chaque connexion : après une déconnexion, l'écoute du foyer a échoué
+  // (permission refusée → null) et, le hid étant le même, l'app affichait « pas de foyer ».
   useEffect(() => {
+    setHid(undefined);
+    setHouse(undefined);
     if (!uid) return;
-    return onSnapshot(doc(db, 'users', uid), (snap) => setHid((snap.data()?.hid as string | undefined) ?? null));
+    return onSnapshot(
+      doc(db, 'users', uid),
+      (snap) => {
+        // Une lecture depuis le cache local seul ne prouve pas l'absence de foyer.
+        if (!snap.exists() && snap.metadata.fromCache) return;
+        setHid((snap.data()?.hid as string | undefined) ?? null);
+      },
+      () => {},
+    );
   }, [uid]);
 
   useEffect(() => {
-    if (hid === undefined) return;
+    if (!uid || hid === undefined) return;
     if (hid === null) {
       setHouse(null);
       return;
@@ -69,7 +81,7 @@ export function useHousehold(uid: string | undefined) {
       },
       () => setHouse(null),
     );
-  }, [hid]);
+  }, [uid, hid]);
 
   return house;
 }
