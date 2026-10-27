@@ -65,12 +65,13 @@ interface Props {
   onAdd: (date: string) => void;
   onShare: () => void;
   forecast: Forecast | null;
+  onPlace: () => void;
   onIdeas: (day: string, slot: Slot) => void;
   onEditTask: (t: Task) => void;
   onEditEvent: (e: EventItem) => void;
 }
 
-export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, onIdeas, onEditTask, onEditEvent }: Props) {
+export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, onPlace, onIdeas, onEditTask, onEditEvent }: Props) {
   const [filter, setFilter] = useState<string>('all');
   const [draft, setDraft] = useState('');
   const now = useNow();
@@ -155,8 +156,11 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
         <span className="deco-b" aria-hidden="true" />
         <div className="col gap2 rel">
           <span className="hello-date">{longDate(today)}</span>
-          {forecast?.[today] && (
-            <span className="hello-weather">{wmo(forecast[today].code).emoji} {forecast[today].tmin}–{forecast[today].tmax}° à {h.home?.name}</span>
+          {h.home && (
+            <button className="hello-weather" onClick={onPlace} aria-label="Météo de la semaine et changer de ville">
+              {forecast?.[today] ? `${wmo(forecast[today].code).emoji} ${forecast[today].tmin}–${forecast[today].tmax}°` : '📍'} à {h.home.name}
+              <span className="hello-weather-edit" aria-hidden="true">›</span>
+            </button>
           )}
           <h1 className="hello-title">{now.getHours() >= 18 || now.getHours() < 5 ? 'Bonsoir' : 'Bonjour'}<br />{h.people[me]?.name}</h1>
           <span className="version">{__APP_VERSION__}</span>

@@ -136,7 +136,7 @@ export const suggestIdeas = onCall(
     const ref = db.collection('households').doc(hid).collection('ideas').doc(day);
     const prev = (await ref.get()).data();
     // Déjà des idées pour ce jour et ce moment : on les rend telles quelles, sans rappeler l'IA.
-    if (prev?.items?.length && prev.slot === slot && !more) return { ok: true };
+    if (prev?.items?.length && prev.slot === slot && (prev.home ?? home.name) === home.name && !more) return { ok: true };
 
     await spend(db, hid, today);
     const evs = await db.collection('households').doc(hid).collection('events').where('date', '==', day).get();
@@ -147,7 +147,7 @@ export const suggestIdeas = onCall(
 
     const items = await askDeepSeek(prompt({ home, day, slot, weather, busy, avoid, people }));
     if (!items.length) throw new HttpsError('unavailable', 'Aucune idée cette fois. Réessaie.');
-    await ref.set({ day, slot, weather, items, chosen: prev?.slot === slot ? prev?.chosen ?? null : null, at: FieldValue.serverTimestamp(), by: uid });
+    await ref.set({ day, slot, home: home.name, weather, items, chosen: prev?.slot === slot ? prev?.chosen ?? null : null, at: FieldValue.serverTimestamp(), by: uid });
     return { ok: true };
   },
 );

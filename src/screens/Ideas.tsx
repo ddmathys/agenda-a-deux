@@ -93,6 +93,19 @@ export function MomentCard({ h, events, forecast, now, onIdeas }: {
 
 /** Première fois : où habitez-vous ? (pour la météo et les idées près de chez vous) */
 function HomePicker({ h }: { h: Household }) {
+  return (
+    <section className="moment grey">
+      <span className="moment-float" aria-hidden="true">🌤️</span>
+      <span className="moment-kicker">Nouveau</span>
+      <h2 className="moment-title">Où habitez-vous ?</h2>
+      <p className="moment-mood">Pour la météo et des idées de sorties près de chez vous quand l’agenda est libre.</p>
+      <PlaceSearch onPick={(p) => setHome(h.id, p)} />
+    </section>
+  );
+}
+
+/** Recherche d'une ville, puis choix dans la liste. */
+function PlaceSearch({ onPick }: { onPick: (p: Home) => void }) {
   const [q, setQ] = useState('');
   const [list, setList] = useState<Home[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -104,11 +117,7 @@ function HomePicker({ h }: { h: Household }) {
     setBusy(false);
   };
   return (
-    <section className="moment grey">
-      <span className="moment-float" aria-hidden="true">🌤️</span>
-      <span className="moment-kicker">Nouveau</span>
-      <h2 className="moment-title">Où habitez-vous ?</h2>
-      <p className="moment-mood">Pour la météo et des idées de sorties près de chez vous quand l’agenda est libre.</p>
+    <>
       <form className="row gap8" onSubmit={search}>
         <label className="sr-only" htmlFor="home-q">Ville</label>
         <input id="home-q" className="moment-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Bulle, Fribourg…" enterKeyHint="search" />
@@ -118,13 +127,64 @@ function HomePicker({ h }: { h: Household }) {
       {list && list.length > 0 && (
         <div className="col gap6">
           {list.map((p) => (
-            <button key={`${p.lat},${p.lon}`} className="moment-place" onClick={() => setHome(h.id, p)}>
+            <button key={`${p.lat},${p.lon}`} className="moment-place" onClick={() => onPick(p)}>
               <b>{p.name}</b> {p.region && <span>{p.region}</span>}
             </button>
           ))}
         </div>
       )}
-    </section>
+    </>
+  );
+}
+
+/** « Votre lieu » : la météo de la semaine, et changer de ville à tout moment. */
+export function LocationSheet({ h, forecast, onClose }: { h: Household; forecast: Forecast | null; onClose: () => void }) {
+  const [saved, setSaved] = useState('');
+  const days = forecast ? Object.keys(forecast).sort().slice(0, 7) : [];
+  return (
+    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label="Votre lieu">
+      <div className="scrim" onClick={onClose} />
+      <div className="sheet">
+        <span className="grabber" aria-hidden="true" />
+        <div className="row between center">
+          <div className="col min0">
+            <h2 className="sheet-title">Votre lieu</h2>
+            <span className="sub">{h.home ? `${h.home.name}${h.home.region ? `, ${h.home.region}` : ''}` : 'Pas encore choisi'}</span>
+          </div>
+          <button className="round-btn" onClick={onClose} aria-label="Fermer">{Icon.close}</button>
+        </div>
+
+        {days.length > 0 && (
+          <div className="week-weather" role="list" aria-label="Météo de la semaine">
+            {days.map((k) => {
+              const w = forecast![k];
+              return (
+                <div key={k} className="ww-day" role="listitem">
+                  <span className="ww-name">{k === keyOf(new Date()) ? 'Auj.' : cap(DAYS[fromKey(k).getDay()].slice(0, 3))}</span>
+                  <span className="ww-icon" title={wmo(w.code).label}>{wmo(w.code).emoji}</span>
+                  <span className="ww-max">{w.tmax}°</span>
+                  <span className="ww-min">{w.tmin}°</span>
+                  {w.rain >= 30 && <span className="ww-rain">💧{w.rain}%</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="moment grey">
+          <h3 className="moment-dname">Changer de ville</h3>
+          <p className="moment-dsub">Pour vous deux : météo, idées de sorties et Coco.</p>
+          <PlaceSearch
+            onPick={async (p) => {
+              await setHome(h.id, p);
+              setSaved(p.name);
+            }}
+          />
+        </div>
+        {saved && <p className="info" role="status">C’est noté : vous êtes à {saved}. 🏡</p>}
+        <p className="muted small">Météo : Open-Meteo (données MétéoSuisse), mise à jour toutes les heures.</p>
+      </div>
+    </div>
   );
 }
 
@@ -157,7 +217,7 @@ export function IdeasSheet({ h, me, day, slot, forecast, onClose }: {
   };
 
   // Pas encore d'idées pour ce jour (ou pour un autre moment) : on les demande tout de suite.
-  const missing = ideas === null || (ideas !== undefined && ideas.slot !== slot);
+  const missing = ideas === null || (ideas !== undefined && (ideas.slot !== slot || (!!ideas.home && ideas.home !== h.home?.name)));
   useEffect(() => {
     if (missing && !loading && !error) ask();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -179,7 +239,7 @@ export function IdeasSheet({ h, me, day, slot, forecast, onClose }: {
   };
 
   const w = forecast?.[day] ?? ideas?.weather ?? undefined;
-  const items = ideas && ideas.slot === slot ? ideas.items : [];
+  const items = ideas && !missing ? ideas.items : [];
 
   return (
     <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label="Idées de sorties">

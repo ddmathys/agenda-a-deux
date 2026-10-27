@@ -49,6 +49,7 @@ export interface Idea {
 export interface Ideas {
   day: string;
   slot: 'day' | 'evening';
+  home?: string; // ville pour laquelle ces idées ont été trouvées
   weather: { code: number; tmax: number; tmin: number; rain: number } | null;
   items: Idea[];
   chosen: number | null;
