@@ -31,7 +31,9 @@ export default defineConfig({
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', },
         ],
       },
-      workbox: { navigateFallbackDenylist: [/^\/__\//], importScripts: ['push-sw.js'] },
+      workbox: { navigateFallbackDenylist: [/^\/__\//], importScripts: ['push-sw.js'],
+        // Nouvelle version : elle prend la main tout de suite, sans attendre une 2e ouverture.
+        clientsClaim: true, skipWaiting: true, cleanupOutdatedCaches: true },
     }),
   ],
 });
