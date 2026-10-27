@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
-import { addEvent, chooseIdea, setHome, useIdeas } from '../data';
-import { addDays, cap, DAYS, fromKey, keyOf, MONTHS_SHORT } from '../dates';
+import { addEvent, chooseIdea, useIdeas } from '../data';
+import { cap, DAYS, fromKey, keyOf, MONTHS_SHORT } from '../dates';
 import { eventsOn } from '../birthday';
 import type { EventItem, Home, Household, Idea } from '../types';
 import { isNice, searchPlace, wmo, type DayWeather, type Forecast } from '../weather';
@@ -21,36 +21,22 @@ const wLine = (w?: DayWeather) => (w ? `${wmo(w.code).emoji} ${w.tmax}°` : '');
 const busyOn = (events: EventItem[], k: string) => eventsOn(events, k).filter((e) => !e.birthday);
 
 /**
- * La carte « vivante » : le week-end qui arrive (jeudi → dimanche) ou une soirée libre en semaine,
- * avec la météo et un bouton pour demander des idées de sorties.
+ * La carte « vivante » de semaine : une soirée libre, avec la météo et des idées.
+ * (Le week-end a son propre bloc sous « Demain ».)
  */
 export function momentPlan(events: EventItem[], now: Date): { title: string; days: { k: string; slot: Slot }[] } | null {
   const dow = now.getDay();
   const today = keyOf(now);
-  let title = '';
-  let days: { k: string; slot: Slot }[] = [];
-
-  if (dow === 0) {
-    title = 'Dernier jour du week-end';
-    days = [{ k: today, slot: 'day' }];
-  } else if (dow >= 4) {
-    const sat = keyOf(addDays(now, 6 - dow));
-    days = [sat, keyOf(addDays(fromKey(sat), 1))].filter((k) => k >= today).map((k) => ({ k, slot: 'day' as Slot }));
-    title = dow === 4 ? 'Le week-end arrive 🎉' : dow === 5 ? 'Demain, c’est le week-end 🎉' : 'C’est le week-end !';
-  } else {
-    // En semaine : seulement quand la soirée est libre.
-    const h0 = now.getHours();
-    if (h0 < 12 || h0 >= 21 || busyOn(events, today).some((e) => !e.start || e.start >= '17:00')) return null;
-    title = 'Ce soir, c’est libre 🌙';
-    days = [{ k: today, slot: 'evening' }];
-  }
-  return days.length ? { title, days } : null;
+  const h0 = now.getHours();
+  if (dow === 0 || dow === 6 || h0 < 12 || h0 >= 21) return null;
+  if (busyOn(events, today).some((e) => !e.start || e.start >= '17:00')) return null;
+  return { title: 'Ce soir, c’est libre 🌙', days: [{ k: today, slot: 'evening' }] };
 }
 
 export function MomentCard({ h, events, forecast, now, onIdeas }: {
   h: Household; events: EventItem[]; forecast: Forecast | null; now: Date; onIdeas: (day: string, slot: Slot) => void;
 }) {
-  if (!h.home) return <HomePicker h={h} />;
+  if (!h.home) return null;
   const plan = momentPlan(events, now);
   if (!plan) return null;
   const { title, days } = plan;
@@ -91,21 +77,8 @@ export function MomentCard({ h, events, forecast, now, onIdeas }: {
   );
 }
 
-/** Première fois : où habitez-vous ? (pour la météo et les idées près de chez vous) */
-function HomePicker({ h }: { h: Household }) {
-  return (
-    <section className="moment grey">
-      <span className="moment-float" aria-hidden="true">🌤️</span>
-      <span className="moment-kicker">Nouveau</span>
-      <h2 className="moment-title">Où habitez-vous ?</h2>
-      <p className="moment-mood">Pour la météo et des idées de sorties près de chez vous quand l’agenda est libre.</p>
-      <PlaceSearch onPick={(p) => setHome(h.id, p)} />
-    </section>
-  );
-}
-
 /** Recherche d'une ville, puis choix dans la liste. */
-function PlaceSearch({ onPick }: { onPick: (p: Home) => void }) {
+export function PlaceSearch({ onPick }: { onPick: (p: Home) => void }) {
   const [q, setQ] = useState('');
   const [list, setList] = useState<Home[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -134,57 +107,6 @@ function PlaceSearch({ onPick }: { onPick: (p: Home) => void }) {
         </div>
       )}
     </>
-  );
-}
-
-/** « Votre lieu » : la météo de la semaine, et changer de ville à tout moment. */
-export function LocationSheet({ h, forecast, onClose }: { h: Household; forecast: Forecast | null; onClose: () => void }) {
-  const [saved, setSaved] = useState('');
-  const days = forecast ? Object.keys(forecast).sort().slice(0, 7) : [];
-  return (
-    <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label="Votre lieu">
-      <div className="scrim" onClick={onClose} />
-      <div className="sheet">
-        <span className="grabber" aria-hidden="true" />
-        <div className="row between center">
-          <div className="col min0">
-            <h2 className="sheet-title">Votre lieu</h2>
-            <span className="sub">{h.home ? `${h.home.name}${h.home.region ? `, ${h.home.region}` : ''}` : 'Pas encore choisi'}</span>
-          </div>
-          <button className="round-btn" onClick={onClose} aria-label="Fermer">{Icon.close}</button>
-        </div>
-
-        {days.length > 0 && (
-          <div className="week-weather" role="list" aria-label="Météo de la semaine">
-            {days.map((k) => {
-              const w = forecast![k];
-              return (
-                <div key={k} className="ww-day" role="listitem">
-                  <span className="ww-name">{k === keyOf(new Date()) ? 'Auj.' : cap(DAYS[fromKey(k).getDay()].slice(0, 3))}</span>
-                  <span className="ww-icon" title={wmo(w.code).label}>{wmo(w.code).emoji}</span>
-                  <span className="ww-max">{w.tmax}°</span>
-                  <span className="ww-min">{w.tmin}°</span>
-                  {w.rain >= 30 && <span className="ww-rain">💧{w.rain}%</span>}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="moment grey">
-          <h3 className="moment-dname">Changer de ville</h3>
-          <p className="moment-dsub">Pour vous deux : météo, idées de sorties et Coco.</p>
-          <PlaceSearch
-            onPick={async (p) => {
-              await setHome(h.id, p);
-              setSaved(p.name);
-            }}
-          />
-        </div>
-        {saved && <p className="info" role="status">C’est noté : vous êtes à {saved}. 🏡</p>}
-        <p className="muted small">Météo : Open-Meteo (données MétéoSuisse), mise à jour toutes les heures.</p>
-      </div>
-    </div>
   );
 }
 
