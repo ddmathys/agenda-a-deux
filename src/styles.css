@@ -884,3 +884,34 @@ p.plan-empty { margin: 0; min-height: 0; padding-top: 10px; padding-bottom: 2px;
 .switch.on > span { transform: translateX(18px); }
 .profile-row .profile-mail { font-weight: 600; }
 .plan-ideas span { font-size: 17px; }
+
+/* Fil du temps : Aujourd'hui → Demain → week-end */
+.flow { position: relative; display: flex; flex-direction: column; gap: 22px; padding-left: 24px; }
+.flow::before {
+  content: ''; position: absolute; left: 8px; top: 12px; bottom: 24px; width: 3px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--coral) 0%, var(--sun) 35%, var(--lilac) 100%);
+}
+.flow > section { position: relative; }
+.flow > section::before {
+  content: ''; position: absolute; left: -23px; top: 8px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--white); border: 3px solid var(--lilac); box-sizing: border-box;
+}
+.flow > .plan:nth-child(2)::before { border-color: #FFB020; }
+.flow > .plan.main::before { background: var(--coral); border-color: var(--white); box-shadow: 0 0 0 3px var(--coral); animation: beat 2s ease-in-out infinite; }
+.flow > .weekend::before { top: 20px; }
+@keyframes beat { 50% { box-shadow: 0 0 0 7px rgba(255, 138, 91, 0.25); } }
+.when { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--coral-ink); }
+.plan:not(.main) .when { color: #8A5A00; }
+.weekend .when { color: var(--purple); }
+
+/* Réglette du jour */
+.ribbon { padding: 0 4px; }
+.ribbon-track { position: relative; height: 12px; border-radius: 6px; background: rgba(255, 255, 255, 0.9); box-shadow: inset 0 0 0 1.5px var(--line); overflow: hidden; }
+.ribbon-past { position: absolute; left: 0; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, #EFE6F2 0 4px, #F8F1F8 4px 8px); }
+.ribbon-ev { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; }
+.ribbon-now { position: absolute; top: -2px; bottom: -2px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--red); box-shadow: 0 0 0 2px var(--white); }
+.ribbon-hours { position: relative; height: 14px; margin-top: 2px; }
+.ribbon-hours span { position: absolute; transform: translateX(-50%); font-size: 10px; font-weight: 800; color: var(--muted); }
+.ribbon-hours span:first-child { transform: none; }
+.ribbon-hours span:last-child { transform: translateX(-100%); }
+@media (prefers-reduced-motion: reduce) { .flow > .plan.main::before { animation: none; } }

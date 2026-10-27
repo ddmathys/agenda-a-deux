@@ -51,6 +51,17 @@ function useNow() {
   return now;
 }
 
+/** Nombre de jours entre deux dates « AAAA-MM-JJ ». */
+const daysFrom = (a: string, b: string) => Math.round((fromKey(b).getTime() - fromKey(a).getTime()) / 86400000);
+
+/** Repère du bloc Demain : le temps jusqu'au premier rendez-vous, sinon « Dans 1 jour ». */
+function untilTomorrow(evs: EventItem[], nowM: number) {
+  const first = evs.find((e) => e.start);
+  if (!first) return 'Dans 1 jour';
+  const m = 24 * 60 - nowM + mins(first.start!);
+  return m < 24 * 60 ? `Premier rendez-vous dans ${Math.round(m / 60)} h` : 'Dans 1 jour';
+}
+
 const byStart = (a: EventItem, b: EventItem) => (a.start ?? '').localeCompare(b.start ?? '');
 
 interface Props {
@@ -149,7 +160,7 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
         </div>
       </header>
 
-      <Focus h={h} today={evToday} tomorrow={evTomorrow} nowM={nowM} onOpen={onEditEvent} />
+      <Focus h={h} today={evToday} nowM={nowM} onOpen={onEditEvent} />
 
       <div className="pills" role="group" aria-label="Filtrer par personne">
         {pills.map((p) => {
@@ -164,18 +175,20 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
         })}
       </div>
 
+      <div className="flow">
       <DayPlan
-        h={h} k={today} title="Aujourd’hui" main evs={evToday} tks={tkToday} nowM={nowM} nowHM={hm(now)} today={today} weather={forecast?.[today]}
+        h={h} k={today} title="Aujourd’hui" when={`Maintenant · ${hm(now)}`} main evs={evToday} tks={tkToday} nowM={nowM} nowHM={hm(now)} today={today} weather={forecast?.[today]}
         onAdd={() => onAdd(today)} onCoco={() => onCoco('Trouve-moi une activité pour aujourd’hui')} onEditEvent={onEditEvent} onEditTask={onEditTask}
       />
       <DayPlan
-        h={h} k={tomorrow} title="Demain" evs={evTomorrow} tks={tkTomorrow} today={today} weather={forecast?.[tomorrow]}
+        h={h} k={tomorrow} title="Demain" when={untilTomorrow(evTomorrow, nowM)} evs={evTomorrow} tks={tkTomorrow} today={today} weather={forecast?.[tomorrow]}
         onAdd={() => onAdd(tomorrow)} onCoco={() => onCoco('Trouve-moi une activité pour demain')} onEditEvent={onEditEvent} onEditTask={onEditTask}
       />
 
       {wk.length > 0 && (
         <section className={wkW.length && wkNice.length ? 'weekend sunny' : 'weekend'}>
           <div className="weekend-head">
+            <span className="when">Dans {daysFrom(today, wk[0])} jours</span>
             <h2>{wkTitle} {wkNice.length ? '😎' : '🎈'}</h2>
             <p className="weekend-mood">{wkMood}</p>
           </div>
@@ -188,6 +201,7 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
           ))}
         </section>
       )}
+      </div>
 
       <section className="col gap10">
         <div className="section-head">
@@ -217,14 +231,13 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
  * La grande carte du haut : ce qui se passe maintenant, ou le prochain rendez-vous
  * avec le temps qu'il reste. En fin de journée, elle annonce le premier rendez-vous de demain.
  */
-function Focus({ h, today, tomorrow, nowM, onOpen }: {
-  h: Household; today: EventItem[]; tomorrow: EventItem[]; nowM: number;
+function Focus({ h, today, nowM, onOpen }: {
+  h: Household; today: EventItem[]; nowM: number;
   onOpen: (e: EventItem) => void;
 }) {
   const timed = today.filter((e) => e.start);
   const cur = timed.find((e) => mins(e.start!) <= nowM && nowM < endMins(e));
   const next = timed.find((e) => mins(e.start!) > nowM);
-  const first = tomorrow.find((e) => e.start) ?? tomorrow[0];
   const where = (e: EventItem) => [e.place, toneOf(h, e.owner).name].filter(Boolean).join(' · ');
 
   const card = (e: EventItem, kicker: string, meta: string, progress?: number) => {
@@ -254,16 +267,13 @@ function Focus({ h, today, tomorrow, nowM, onOpen }: {
   if (next) {
     return card(next, `${inLabel(mins(next.start!) - nowM)} · à ${next.start}`, [next.end && `jusqu’à ${next.end}`, where(next)].filter(Boolean).join(' · '));
   }
-  if (first && nowM >= 17 * 60) {
-    return card(first, first.start ? `Demain à ${first.start}` : 'Demain', where(first));
-  }
   // Rien en cours ni à venir : les blocs Aujourd'hui / Demain suffisent.
   return null;
 }
 
 /** Le programme d'un jour : rendez-vous dans l'ordre, la ligne « maintenant », puis les tâches. */
-function DayPlan({ h, k, title, main = false, sub = false, evs, tks, nowM, nowHM, today, weather, onAdd, onCoco, onEditEvent, onEditTask }: {
-  h: Household; k: string; title: string; main?: boolean; sub?: boolean; evs: EventItem[]; tks: Task[]; nowM?: number; nowHM?: string; today: string; weather?: DayWeather;
+function DayPlan({ h, k, title, main = false, sub = false, evs, tks, nowM, nowHM, today, weather, when, onAdd, onCoco, onEditEvent, onEditTask }: {
+  h: Household; k: string; title: string; main?: boolean; sub?: boolean; evs: EventItem[]; tks: Task[]; nowM?: number; nowHM?: string; today: string; weather?: DayWeather; when?: string;
   onAdd: () => void; onCoco?: () => void; onEditEvent: (e: EventItem) => void; onEditTask: (t: Task) => void;
 }) {
   const allDay = evs.filter((e) => !e.start);
@@ -310,6 +320,7 @@ function DayPlan({ h, k, title, main = false, sub = false, evs, tks, nowM, nowHM
     <section className={main ? 'plan main' : sub ? 'plan sub' : 'plan'}>
       <div className="plan-head">
         <div className="col min0">
+          {when && <span className="when">{when}</span>}
           <h2>{title}</h2>
           <span className="plan-date">{dayDate(k)}{count && ` · ${count}`}</span>
         </div>
@@ -325,6 +336,7 @@ function DayPlan({ h, k, title, main = false, sub = false, evs, tks, nowM, nowHM
         )}
         <button className="plan-add" onClick={onAdd} aria-label={`Ajouter pour ${title.toLowerCase()}`}>{Icon.plusSm}</button>
       </div>
+      <DayRibbon h={h} evs={timed} nowM={nowM} />
       <div className="plan-card">
         {evs.length + tks.length === 0 && <p className="plan-empty">Rien de prévu pour l’instant.</p>}
         {allDay.map(evRow)}
@@ -358,6 +370,41 @@ function NowLine({ hm }: { hm: string }) {
   return (
     <div className="now-line" role="note" aria-label={`Il est ${hm}`}>
       <span>{hm}</span>
+    </div>
+  );
+}
+
+/**
+ * La réglette du jour, de 7 h à 23 h : chaque rendez-vous est un bloc coloré à sa place.
+ * Pour aujourd'hui, la partie passée est grisée et un curseur montre l'heure qu'il est.
+ */
+function DayRibbon({ h, evs, nowM }: { h: Household; evs: EventItem[]; nowM?: number }) {
+  let from = 7 * 60;
+  let to = 23 * 60;
+  for (const e of evs) {
+    from = Math.min(from, Math.floor(mins(e.start!) / 60) * 60);
+    to = Math.max(to, Math.min(24 * 60, Math.ceil(endMins(e) / 60) * 60));
+  }
+  const pct = (m: number) => `${(Math.min(Math.max(m, from), to) - from) / (to - from) * 100}%`;
+  const ticks = [from];
+  for (let t = Math.ceil((from + 120) / 360) * 360; t <= to - 120; t += 360) ticks.push(t);
+  ticks.push(to);
+  return (
+    <div className="ribbon" aria-hidden="true">
+      <div className="ribbon-track">
+        {nowM !== undefined && <span className="ribbon-past" style={{ width: pct(nowM) }} />}
+        {evs.map((e) => (
+          <span
+            key={e.id}
+            className="ribbon-ev"
+            style={{ left: pct(mins(e.start!)), width: `max(6px, calc(${pct(endMins(e))} - ${pct(mins(e.start!))}))`, background: toneOf(h, e.owner).c }}
+          />
+        ))}
+        {nowM !== undefined && nowM >= from && nowM <= to && <span className="ribbon-now" style={{ left: pct(nowM) }} />}
+      </div>
+      <div className="ribbon-hours">
+        {ticks.map((t) => <span key={t} style={{ left: pct(t) }}>{t / 60} h</span>)}
+      </div>
     </div>
   );
 }
