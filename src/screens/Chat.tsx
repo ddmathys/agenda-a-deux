@@ -49,7 +49,7 @@ const when = (a: Action) => {
   return `${cap(DAYS[d.getDay()])} ${d.getDate()} ${MONTHS[d.getMonth()]}${a.start ? ` · ${a.start}${a.end ? `–${a.end}` : ''}` : ''}`;
 };
 
-export function Chat({ h, me, onClose }: { h: Household; me: string; onClose: () => void }) {
+export function Chat({ h, me, ask, onClose }: { h: Household; me: string; ask?: string; onClose: () => void }) {
   const store = `coco-${me}`;
   const [msgs, setMsgs] = useState<Msg[]>(() => {
     try {
@@ -89,6 +89,16 @@ export function Chat({ h, me, onClose }: { h: Household; me: string; onClose: ()
     }
     setBusy(false);
   };
+
+  // Ouvert avec une question toute prête (« Trouve-moi une activité… ») : Coco s'y met tout de suite.
+  const asked = useRef(false);
+  useEffect(() => {
+    if (ask && !asked.current) {
+      asked.current = true;
+      send(ask);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ask]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();

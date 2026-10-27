@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { setHome } from '../data';
+import { disablePush, enablePush, pushState, type PushState } from '../push';
 import { cap, DAYS, fromKey, keyOf } from '../dates';
 import { partnerUid } from '../tones';
 import type { Household } from '../types';
@@ -22,6 +23,31 @@ export function ProfileSheet({ h, me, forecast, onShare, onClose }: {
   const partner = partnerUid(h, me);
   const days = forecast && h.home ? Object.keys(forecast).sort().slice(0, 7) : [];
   const email = auth.currentUser?.email ?? h.people[me]?.email ?? '';
+
+  // Rappels : l'abonnement de CE téléphone aux notifications.
+  const [push, setPush] = useState<PushState>('unsupported');
+  const [pushNote, setPushNote] = useState('');
+  useEffect(() => {
+    pushState().then(setPush).catch(() => setPush('unsupported'));
+  }, []);
+  const togglePush = async () => {
+    setPushNote('');
+    if (push === 'unsupported') {
+      setPushNote('Ce téléphone ou ce navigateur ne permet pas les notifications.');
+      return;
+    }
+    if (push === 'denied') {
+      setPushNote('Les notifications sont bloquées : autorise-les dans les réglages du téléphone (Applications › Agenda à deux › Notifications).');
+      return;
+    }
+    try {
+      const next = push === 'on' ? await disablePush(me) : await enablePush(me);
+      setPush(next);
+      setPushNote(next === 'on' ? 'Rappels activés sur ce téléphone.' : next === 'denied' ? 'Notifications refusées.' : 'Rappels coupés sur ce téléphone.');
+    } catch {
+      setPushNote('Impossible d’activer les rappels pour l’instant. Réessaie.');
+    }
+  };
 
   return (
     <div className="sheet-wrap" role="dialog" aria-modal="true" aria-label="Profil">
@@ -80,6 +106,16 @@ export function ProfileSheet({ h, me, forecast, onShare, onClose }: {
           )}
           {saved && <p className="info" role="status">C’est noté : vous êtes à {saved}. 🏡</p>}
         </section>
+
+        <button className="profile-row" onClick={togglePush} role="switch" aria-checked={push === 'on'}>
+          <span className="profile-row-icon" aria-hidden="true">{Icon.bell}</span>
+          <span className="col grow min0">
+            <span>Rappels</span>
+            <span className="profile-mail">Rendez-vous, anniversaires, et quand {partner ? h.people[partner]?.name : 'ta moitié'} ajoute quelque chose</span>
+          </span>
+          <span className={push === 'on' ? 'switch on' : 'switch'} aria-hidden="true"><span /></span>
+        </button>
+        {pushNote && <p className="push-note" role="status">{pushNote}</p>}
 
         <button className="profile-row" onClick={onShare}>
           <span className="profile-row-icon" aria-hidden="true">{Icon.share}</span>

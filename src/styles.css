@@ -863,3 +863,24 @@ h3.moment-dname { margin: 0; }
   display: flex; align-items: center; justify-content: center; color: var(--muted2);
 }
 p.plan-empty { margin: 0; min-height: 0; padding-top: 10px; padding-bottom: 2px; }
+
+/* Météo bien visible dans Aujourd'hui / Demain / week-end */
+.plan-head { align-items: center; }
+.plan-head > .col { flex-grow: 1; }
+.wx {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 6px; border-radius: 999px; background: var(--white);
+  box-shadow: 0 4px 12px rgba(155, 123, 255, 0.16); flex-shrink: 0;
+}
+.wx-ico { font-size: 28px; line-height: 1; }
+.wx b { font-family: var(--display); font-size: 17px; font-weight: 600; line-height: 1; }
+.wx small { font-size: 11px; font-weight: 800; color: var(--muted); line-height: 1.2; }
+.plan.main .wx-ico { font-size: 34px; }
+.plan.main .wx b { font-size: 20px; }
+
+/* Interrupteur des rappels (profil) */
+.switch { width: 46px; height: 28px; flex-shrink: 0; border-radius: 999px; background: #E3D8EE; position: relative; transition: background 0.2s; }
+.switch > span { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--white); transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); }
+.switch.on { background: var(--turq); }
+.switch.on > span { transform: translateX(18px); }
+.profile-row .profile-mail { font-weight: 600; }
+.plan-ideas span { font-size: 17px; }

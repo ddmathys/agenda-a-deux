@@ -1,13 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { disablePush, enablePush, pushState, type PushState } from '../push';
 import { addDays, cap, DAYS, dueLabel, fromKey, keyOf, mondayOf, MONTHS, MONTHS_SHORT, shortDate } from '../dates';
 import { ageOn, eventsOn, stayOn } from '../birthday';
 import { addTask, toggleTask } from '../data';
 import { ownerChoices, partnerUid, toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
 import { Avatar, BirthdayMark, Check, Icon, RepeatMark, VacationMark, type Tab } from '../ui';
-import { Countdowns } from '../widgets';
-import { MomentCard, momentPlan, type Slot } from './Ideas';
 import { isNice, wmo, type DayWeather, type Forecast } from '../weather';
 
 const LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -66,12 +63,12 @@ interface Props {
   onShare: () => void;
   forecast: Forecast | null;
   onProfile: () => void;
-  onIdeas: (day: string, slot: Slot) => void;
+  onCoco: (question: string) => void;
   onEditTask: (t: Task) => void;
   onEditEvent: (e: EventItem) => void;
 }
 
-export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, onProfile, onIdeas, onEditTask, onEditEvent }: Props) {
+export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, onProfile, onCoco, onEditTask, onEditEvent }: Props) {
   const [filter, setFilter] = useState<string>('all');
   const [draft, setDraft] = useState('');
   const now = useNow();
@@ -125,45 +122,6 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
   };
   const partner = partnerUid(h, me);
 
-  // Rappels : état de l'abonnement de ce téléphone.
-  const [push, setPush] = useState<PushState>('unsupported');
-  const [pushNote, setPushNote] = useState('');
-  const [pushLater, setPushLater] = useState(() => {
-    try {
-      return localStorage.getItem('push-later') === '1';
-    } catch {
-      return false;
-    }
-  });
-  useEffect(() => {
-    pushState().then(setPush).catch(() => setPush('unsupported'));
-  }, []);
-  const togglePush = async () => {
-    setPushNote('');
-    if (push === 'unsupported') {
-      setPushNote('Ce téléphone ou ce navigateur ne permet pas les notifications.');
-      return;
-    }
-    if (push === 'denied') {
-      setPushNote('Les notifications sont bloquées : autorise-les dans les réglages du téléphone (Applications › Agenda à deux › Notifications).');
-      return;
-    }
-    try {
-      const next = push === 'on' ? await disablePush(me) : await enablePush(me);
-      setPush(next);
-      setPushNote(next === 'on' ? 'Rappels activés sur ce téléphone.' : next === 'denied' ? 'Notifications refusées.' : 'Rappels coupés sur ce téléphone.');
-    } catch {
-      setPushNote('Impossible d’activer les rappels pour l’instant. Réessaie.');
-    }
-  };
-  const later = () => {
-    setPushLater(true);
-    try {
-      localStorage.setItem('push-later', '1');
-    } catch {
-      /* rien */
-    }
-  };
   const pills = [{ id: 'all', label: 'Tout' }, ...ownerChoices(h, me)];
 
   return (
@@ -173,26 +131,11 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
         <span className="deco-b" aria-hidden="true" />
         <div className="col gap2 rel">
           <span className="hello-date">{longDate(today)}</span>
-          {h.home && (
-            <button className="hello-weather" onClick={onProfile} aria-label="Météo de la semaine, dans ton profil">
-              {forecast?.[today] ? `${wmo(forecast[today].code).emoji} ${forecast[today].tmin}–${forecast[today].tmax}°` : '📍'} à {h.home.name}
-              <span className="hello-weather-edit" aria-hidden="true">›</span>
-            </button>
-          )}
           <h1 className="hello-title">{now.getHours() >= 18 || now.getHours() < 5 ? 'Bonsoir' : 'Bonjour'}<br />{h.people[me]?.name}</h1>
           <span className="version">{__APP_VERSION__}</span>
         </div>
         <div className="col rel hello-side">
           <div className="row center gap8">
-            <button className="bell" onClick={onShare} aria-label="Partager l’app ou inviter">{Icon.share}</button>
-            <button
-              className={push === 'on' ? 'bell on' : 'bell'}
-              onClick={togglePush}
-              aria-pressed={push === 'on'}
-              aria-label={push === 'on' ? 'Rappels activés, toucher pour les couper' : 'Activer les rappels'}
-            >
-              {Icon.bell}
-            </button>
             <button className="row hello-avs plain" onClick={onProfile} aria-label="Profil : lieu, partage, déconnexion">
               <Avatar h={h} owner={me} size={40} />
               {partner && <span className="overlap"><Avatar h={h} owner={partner} size={40} /></span>}
@@ -206,24 +149,7 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
         </div>
       </header>
 
-      {push === 'off' && !pushLater && (
-        <section className="push-card">
-          <span className="push-icon" aria-hidden="true">{Icon.bell}</span>
-          <span className="col grow min0 gap2">
-            <span className="push-title">Active les rappels</span>
-            <span className="push-sub">Rendez-vous, anniversaires, et quand {partner ? h.people[partner]?.name : 'ta moitié'} ajoute quelque chose.</span>
-          </span>
-          <span className="col gap4">
-            <button className="push-on" onClick={togglePush}>Activer</button>
-            <button className="push-later" onClick={later}>Plus tard</button>
-          </span>
-        </section>
-      )}
-      {pushNote && <p className="push-note" role="status">{pushNote}</p>}
-
-      <Focus h={h} today={evToday} tomorrow={evTomorrow} nowM={nowM} tasksLeft={tkToday.filter((t) => !t.done).length} quiet={!!h.home && !!momentPlan(events, now)} onOpen={onEditEvent} onAdd={() => onAdd(today)} />
-
-      <MomentCard h={h} events={events} forecast={forecast} now={now} onIdeas={onIdeas} />
+      <Focus h={h} today={evToday} tomorrow={evTomorrow} nowM={nowM} onOpen={onEditEvent} />
 
       <div className="pills" role="group" aria-label="Filtrer par personne">
         {pills.map((p) => {
@@ -240,11 +166,11 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
 
       <DayPlan
         h={h} k={today} title="Aujourd’hui" main evs={evToday} tks={tkToday} nowM={nowM} nowHM={hm(now)} today={today} weather={forecast?.[today]}
-        onAdd={() => onAdd(today)} onEditEvent={onEditEvent} onEditTask={onEditTask}
+        onAdd={() => onAdd(today)} onCoco={() => onCoco('Trouve-moi une activité pour aujourd’hui')} onEditEvent={onEditEvent} onEditTask={onEditTask}
       />
       <DayPlan
         h={h} k={tomorrow} title="Demain" evs={evTomorrow} tks={tkTomorrow} today={today} weather={forecast?.[tomorrow]}
-        onAdd={() => onAdd(tomorrow)} onEditEvent={onEditEvent} onEditTask={onEditTask}
+        onAdd={() => onAdd(tomorrow)} onCoco={() => onCoco('Trouve-moi une activité pour demain')} onEditEvent={onEditEvent} onEditTask={onEditTask}
       />
 
       {wk.length > 0 && (
@@ -257,31 +183,11 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
             <DayPlan
               key={k} sub h={h} k={k} title={cap(DAYS[fromKey(k).getDay()])} evs={wkEvents(k)}
               tks={tasks.filter((t) => visible(t) && t.due === k)} today={today} weather={forecast?.[k]}
-              onAdd={() => onAdd(k)} onIdeas={h.home ? () => onIdeas(k, 'day') : undefined} onEditEvent={onEditEvent} onEditTask={onEditTask}
+              onAdd={() => onAdd(k)} onCoco={() => onCoco(`Trouve-moi une activité pour ${dayDate(k)}`)} onEditEvent={onEditEvent} onEditTask={onEditTask}
             />
           ))}
         </section>
       )}
-
-      <section className="col gap10">
-        <div className="section-head">
-          <h2>Cette semaine</h2>
-          <button className="link" onClick={() => onTab('upcoming')}>Tout voir</button>
-        </div>
-        <div className="strip" role="group" aria-label="Cette semaine">
-          {week.map((k, i) => (
-            <button key={k} className={k === today ? 'strip-day on' : k < today ? 'strip-day past' : 'strip-day'} onClick={() => onTab('upcoming', k)} aria-label={`Voir le ${shortDate(k)}`}>
-              <span className="strip-l">{LETTERS[i]}</span>
-              <span className="strip-n">{fromKey(k).getDate()}</span>
-              <span className="dots">
-                {ownersOn(k).map((o) => <span key={o} className="dot" style={{ background: toneOf(h, o).c }} />)}
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <Countdowns h={h} me={me} events={events} today={today} onOpen={onEditEvent} onYear={() => onTab('year')} onBirthdays={() => onTab('birthdays')} onVacations={() => onTab('vacations')} />
 
       <section className="col gap10">
         <div className="section-head">
@@ -311,9 +217,9 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
  * La grande carte du haut : ce qui se passe maintenant, ou le prochain rendez-vous
  * avec le temps qu'il reste. En fin de journée, elle annonce le premier rendez-vous de demain.
  */
-function Focus({ h, today, tomorrow, nowM, tasksLeft, quiet, onOpen, onAdd }: {
-  h: Household; today: EventItem[]; tomorrow: EventItem[]; nowM: number; tasksLeft: number; quiet: boolean;
-  onOpen: (e: EventItem) => void; onAdd: () => void;
+function Focus({ h, today, tomorrow, nowM, onOpen }: {
+  h: Household; today: EventItem[]; tomorrow: EventItem[]; nowM: number;
+  onOpen: (e: EventItem) => void;
 }) {
   const timed = today.filter((e) => e.start);
   const cur = timed.find((e) => mins(e.start!) <= nowM && nowM < endMins(e));
@@ -351,24 +257,14 @@ function Focus({ h, today, tomorrow, nowM, tasksLeft, quiet, onOpen, onAdd }: {
   if (first && nowM >= 17 * 60) {
     return card(first, first.start ? `Demain à ${first.start}` : 'Demain', where(first));
   }
-  // Rien en cours : la carte vivante (week-end, soirée libre) prend la place.
-  if (quiet) return null;
-  return (
-    <div className="focus calm">
-      <span className="focus-kicker">{timed.length ? 'Plus de rendez-vous aujourd’hui' : 'Pas de rendez-vous aujourd’hui'}</span>
-      <span className="focus-title">{tasksLeft ? `${tasksLeft} ${tasksLeft > 1 ? 'tâches' : 'tâche'} pour aujourd’hui` : 'Journée libre ✨'}</span>
-      <span className="focus-meta">
-        {first ? `Demain : ${first.title}${first.start ? ` à ${first.start}` : ''}` : 'Rien de prévu demain non plus.'}
-      </span>
-      <button className="focus-add" onClick={onAdd}>{Icon.plusSm}Ajouter</button>
-    </div>
-  );
+  // Rien en cours ni à venir : les blocs Aujourd'hui / Demain suffisent.
+  return null;
 }
 
 /** Le programme d'un jour : rendez-vous dans l'ordre, la ligne « maintenant », puis les tâches. */
-function DayPlan({ h, k, title, main = false, sub = false, evs, tks, nowM, nowHM, today, weather, onAdd, onIdeas, onEditEvent, onEditTask }: {
+function DayPlan({ h, k, title, main = false, sub = false, evs, tks, nowM, nowHM, today, weather, onAdd, onCoco, onEditEvent, onEditTask }: {
   h: Household; k: string; title: string; main?: boolean; sub?: boolean; evs: EventItem[]; tks: Task[]; nowM?: number; nowHM?: string; today: string; weather?: DayWeather;
-  onAdd: () => void; onIdeas?: () => void; onEditEvent: (e: EventItem) => void; onEditTask: (t: Task) => void;
+  onAdd: () => void; onCoco?: () => void; onEditEvent: (e: EventItem) => void; onEditTask: (t: Task) => void;
 }) {
   const allDay = evs.filter((e) => !e.start);
   const timed = evs.filter((e) => e.start);
@@ -414,16 +310,23 @@ function DayPlan({ h, k, title, main = false, sub = false, evs, tks, nowM, nowHM
     <section className={main ? 'plan main' : sub ? 'plan sub' : 'plan'}>
       <div className="plan-head">
         <div className="col min0">
-          <h2>{title}{weather && <span className="plan-weather">{wmo(weather.code).emoji} {weather.tmax}°</span>}</h2>
+          <h2>{title}</h2>
           <span className="plan-date">{dayDate(k)}{count && ` · ${count}`}</span>
         </div>
+        {weather && (
+          <span className="wx" title={wmo(weather.code).label}>
+            <span className="wx-ico" aria-hidden="true">{wmo(weather.code).emoji}</span>
+            <span className="col">
+              <b>{weather.tmax}°</b>
+              <small>{weather.rain >= 30 ? `💧${weather.rain} %` : `${weather.tmin}°`}</small>
+            </span>
+            <span className="sr-only">{wmo(weather.code).label}</span>
+          </span>
+        )}
         <button className="plan-add" onClick={onAdd} aria-label={`Ajouter pour ${title.toLowerCase()}`}>{Icon.plusSm}</button>
       </div>
       <div className="plan-card">
-        {evs.length + tks.length === 0 && !onIdeas && (
-          <button className="plan-empty" onClick={onAdd}>Rien de prévu. <span>Ajouter quelque chose</span></button>
-        )}
-        {evs.length + tks.length === 0 && onIdeas && <p className="plan-empty">Rien de prévu pour l’instant.</p>}
+        {evs.length + tks.length === 0 && <p className="plan-empty">Rien de prévu pour l’instant.</p>}
         {allDay.map(evRow)}
         {timed.map((e, i) => [i === nowAt && <NowLine key="now" hm={nowHM!} />, evRow(e)])}
         {nowAt === timed.length && <NowLine hm={nowHM!} />}
@@ -443,8 +346,8 @@ function DayPlan({ h, k, title, main = false, sub = false, evs, tks, nowM, nowHM
             </div>
           );
         })}
-        {onIdeas && evs.every((e) => e.birthday) && (
-          <button className="plan-ideas" onClick={onIdeas}>{Icon.spark}Libre : des idées de sorties ?</button>
+        {onCoco && evs.every((e) => e.birthday) && (
+          <button className="plan-ideas" onClick={onCoco}><span aria-hidden="true">🐥</span>Trouve-moi une activité</button>
         )}
       </div>
     </section>
