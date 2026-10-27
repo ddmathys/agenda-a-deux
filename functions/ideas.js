@@ -58,7 +58,7 @@ async function spend(db, hid, today) {
   });
 }
 
-function prompt({ home, day, slot, weather, busy, avoid, people }) {
+export function prompt({ home, day, slot, weather, busy, avoid, people }) {
   const [y, m, d] = day.split('-').map(Number);
   const date = new Date(Date.UTC(y, m - 1, d));
   const when = `${DAYS[date.getUTCDay()]} ${d} ${MONTHS[m - 1]} ${y}`;
@@ -74,13 +74,14 @@ function prompt({ home, day, slot, weather, busy, avoid, people }) {
     'Règles :',
     '- Lieux réels et connus, à 45 minutes au plus de chez eux. Si tu n’es pas sûr qu’un lieu existe, propose une activité générique (ex. « pique-nique au bord du lac de la Gruyère »).',
     '- Adapte à la météo et à la saison : s’il pleut ou fait froid, surtout des idées au sec ; s’il fait beau, au moins deux idées dehors.',
+    '- Heures réalistes selon les horaires habituels : musées, ateliers et visites en journée (fermeture vers 17 h), repas aux heures de repas ; les activités ne se chevauchent pas forcément, ce sont des choix.',
     '- Varie : une idée nature ou sport doux, une idée culture ou découverte, une idée gourmande, une idée originale ou cocooning.',
     '- Ton chaleureux et concret, en français de Suisse romande, on s’adresse au couple avec « vous ». Pas de prix inventés.',
     'Réponds UNIQUEMENT en JSON : {"ideas":[{"emoji":"🥾","title":"titre court (max 40 caractères)","why":"une phrase qui donne envie (max 110 caractères)","place":"lieu précis ou ville","start":"HH:MM","duration":120,"cost":"gratuit|petit budget|sortie","indoor":false}]}',
   ].filter(Boolean).join('\n');
 }
 
-async function askDeepSeek(text) {
+export async function askDeepSeek(text) {
   const r = await fetch('https://api.deepseek.com/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${DEEPSEEK_KEY.value().trim()}` },
