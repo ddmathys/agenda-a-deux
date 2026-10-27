@@ -735,3 +735,56 @@ h1, h2, .sheet-title, .page-head h1, .section-head h2, .h18, .h19, .h20 { font-f
 .idea-wait { display: flex; align-items: center; gap: 12px; padding: 18px; border-radius: 22px; background: var(--white); font-weight: 700; color: var(--muted2); }
 .idea-wait-dot { font-size: 30px; animation: spin 2.4s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Coco, l'assistant */
+.nav-item { width: 58px; }
+.nav-coco-face { font-size: 22px; line-height: 24px; display: inline-block; animation: bob 3.5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .nav-coco-face, .chat, .bubble { animation: none !important; } }
+.chat {
+  position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; max-width: 480px; margin: 0 auto;
+  background: linear-gradient(180deg, #FFF0B8 0%, var(--bg) 220px); animation: up 0.25s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.chat-head { display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top)) 14px 10px; }
+.chat-avatar {
+  width: 46px; height: 46px; flex-shrink: 0; border-radius: 50%; background: var(--white); font-size: 28px;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(255, 180, 0, 0.3);
+}
+.chat-name { font-family: var(--display); font-size: 21px; font-weight: 600; line-height: 1.1; }
+.chat-status { font-size: 12.5px; font-weight: 700; color: #7A5200; }
+.chat-head .link { font-size: 12px; flex-shrink: 0; }
+.chat-body { flex-grow: 1; overflow-y: auto; overscroll-behavior: contain; padding: 8px 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.bubble {
+  max-width: 84%; padding: 10px 14px; border-radius: 22px; font-size: 15px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere;
+  animation: rise 0.3s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+.bubble.bot { align-self: flex-start; background: var(--white); border-bottom-left-radius: 8px; box-shadow: var(--shadow); }
+.bubble.me { align-self: flex-end; background: var(--coral); color: #3A1400; border-bottom-right-radius: 8px; }
+.bubble b { font-weight: 800; }
+.typing { display: flex; gap: 5px; padding: 14px 16px; }
+.typing span { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+.chat-sugg { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0; }
+.chat-sugg button {
+  border: 2px solid var(--line); background: var(--white); border-radius: 999px; padding: 9px 14px; font-size: 14px; font-weight: 700;
+  text-align: left; animation: rise 0.4s both;
+}
+.chat-action {
+  align-self: flex-start; width: 88%; display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 14px;
+  background: var(--white); border-radius: 18px; border-left: 5px solid; box-shadow: var(--shadow); animation: rise 0.35s both;
+}
+.chat-action b { font-size: 15px; }
+.chat-action-sub { font-size: 12.5px; font-weight: 700; color: var(--muted2); }
+.chat-add { flex-shrink: 0; min-height: 40px; padding: 0 14px; border: none; border-radius: 999px; background: var(--ink); color: var(--white); font-weight: 800; font-size: 14px; }
+.chat-add.on { background: #D5F5F1; color: #0B5F57; opacity: 1; }
+.chat-input {
+  display: flex; gap: 8px; padding: 10px 12px calc(12px + env(safe-area-inset-bottom)); background: var(--bg);
+  border-top: 1px solid var(--line);
+}
+.chat-input input {
+  flex-grow: 1; min-width: 0; height: 50px; border: 2px solid var(--line); border-radius: 999px; padding: 0 18px;
+  font-size: 16px; font-weight: 600; background: var(--white); outline: none;
+}
+.chat-input input:focus { border-color: var(--coral); }
+.chat-send { width: 50px; height: 50px; flex-shrink: 0; border: none; border-radius: 50%; background: var(--coral); color: #3A1400; display: flex; align-items: center; justify-content: center; }

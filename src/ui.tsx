@@ -30,7 +30,7 @@ export const Icon = {
   share: <svg width="18" height="18" viewBox="0 0 24 24" {...stroke} strokeWidth={2.2}><path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" /></svg>,
 };
 
-export function Nav({ tab, onTab, onAdd }: { tab: Tab; onTab: (t: Tab) => void; onAdd: () => void }) {
+export function Nav({ tab, onTab, onAdd, onChat }: { tab: Tab; onTab: (t: Tab) => void; onAdd: () => void; onChat: () => void }) {
   const item = (id: Tab, label: string, icon: ReactNode) => (
     <button className={`nav-item${tab === id ? ' on' : ''}`} onClick={() => onTab(id)} aria-current={tab === id ? 'page' : undefined}>
       {icon}
@@ -43,6 +43,10 @@ export function Nav({ tab, onTab, onAdd }: { tab: Tab; onTab: (t: Tab) => void; 
       {item('upcoming', 'À venir', Icon.cal)}
       <button className="nav-add" aria-label="Ajouter" onClick={onAdd}>{Icon.plus}</button>
       {item('year', 'Année', Icon.wall)}
+      <button className="nav-item nav-coco" onClick={onChat}>
+        <span className="nav-coco-face" aria-hidden="true">🐥</span>
+        <span>Coco</span>
+      </button>
     </nav>
   );
 }

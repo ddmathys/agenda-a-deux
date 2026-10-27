@@ -11,6 +11,7 @@ import { Login, Setup } from './screens/Welcome';
 import { ShareSheet } from './screens/Share';
 import { IdeasSheet, type Slot } from './screens/Ideas';
 import { useForecast } from './weather';
+import { Chat } from './screens/Chat';
 import { clearInvite } from './invite';
 import type { EventItem, Household, Task } from './types';
 import { Nav, scrollToTop, type Tab } from './ui';
@@ -31,6 +32,7 @@ function Shell({ h, user }: { h: Household; user: User }) {
   const [sheet, setSheet] = useState<SheetMode | null>(null);
   const [sharing, setSharing] = useState(false);
   const [upDay, setUpDay] = useState<string | undefined>(undefined);
+  const [chat, setChat] = useState(false);
   const [ideas, setIdeas] = useState<{ day: string; slot: Slot } | null>(null);
   const forecast = useForecast(h.home);
   const events = useEvents(h.id);
@@ -62,7 +64,8 @@ function Shell({ h, user }: { h: Household; user: User }) {
       {tab === 'vacations' && (
         <Vacations h={h} me={me} events={events} onBack={() => go('today')} onAdd={() => setSheet({ kind: 'new', preset: 'vac' })} onEditEvent={edit.onEditEvent} />
       )}
-      <Nav tab={tab} onTab={(t) => go(t)} onAdd={() => setSheet({ kind: 'new' })} />
+      <Nav tab={tab} onTab={(t) => go(t)} onAdd={() => setSheet({ kind: 'new' })} onChat={() => setChat(true)} />
+      {chat && <Chat h={h} me={me} onClose={() => setChat(false)} />}
       {sharing && <ShareSheet h={h} me={me} onClose={() => setSharing(false)} />}
       {ideas && <IdeasSheet key={ideas.day + ideas.slot} h={h} me={me} day={ideas.day} slot={ideas.slot} forecast={forecast} onClose={() => setIdeas(null)} />}
       {sheet && (

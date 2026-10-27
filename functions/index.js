@@ -119,3 +119,4 @@ export const newTask = onDocumentCreated(
 );
 
 export { suggestIdeas } from './ideas.js';
+export { chat } from './chat.js';
