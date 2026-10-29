@@ -3,7 +3,9 @@ import { addDays, cap, DAYS, fromKey, keyOf, mondayOf, MONTHS_SHORT, shortDate }
 import { ageOn, eventsOn, stayOn } from '../birthday';
 import { addTask, toggleTask } from '../data';
 import { ownerChoices, partnerUid, toneOf } from '../tones';
-import type { EventItem, Household, Task } from '../types';
+import type { Deadline, EventItem, Household, Task } from '../types';
+import { daysTo, keyDate } from '../deadlines';
+import { DeadlineRow } from './Deadlines';
 import { Avatar, Check, Icon, RepeatMark } from '../ui';
 import { wmo, type Forecast } from '../weather';
 
@@ -95,9 +97,12 @@ interface Props {
   onCoco: (question: string) => void;
   onEditTask: (t: Task) => void;
   onEditEvent: (e: EventItem) => void;
+  deadlines: Deadline[];
+  onDeadlines: () => void;
+  onEditDeadline: (d: Deadline) => void;
 }
 
-export function Today({ h, me, events, tasks, onAdd, onShare, forecast, onProfile, onCoco, onEditTask, onEditEvent }: Props) {
+export function Today({ h, me, events, tasks, deadlines, onDeadlines, onEditDeadline, onAdd, onShare, forecast, onProfile, onCoco, onEditTask, onEditEvent }: Props) {
   const [filter, setFilter] = useState<string>('all');
   const [draft, setDraft] = useState('');
   const now = useNow();
@@ -288,6 +293,26 @@ export function Today({ h, me, events, tasks, onAdd, onShare, forecast, onProfil
             {wk === 0 ? 'Semaine prochaine' : `Semaine du ${shortDate(keyOf(addDays(monday, 7)))}`}{Icon.right}
           </button>
         </div>
+      </section>
+
+      <section className="col gap12">
+        <div className="d-sec center">
+          <h2 className="grow">Échéances</h2>
+          <button className="d-link" onClick={onDeadlines}>Abos &amp; contrats ({deadlines.length}){Icon.right}</button>
+        </div>
+        {(() => {
+          const soon = deadlines
+            .filter((d) => daysTo(keyDate(d, today), today) <= 30)
+            .sort((a, b) => keyDate(a, today).localeCompare(keyDate(b, today)))
+            .slice(0, 3);
+          if (soon.length) return <div className="d-card">{soon.map((d) => <DeadlineRow key={d.id} h={h} d={d} today={today} onEdit={onEditDeadline} />)}</div>;
+          return (
+            <button className="d-free plain" onClick={onDeadlines}>
+              <span>{deadlines.length ? 'Rien à résilier ni à renouveler ce mois-ci.' : 'Abonnements, assurances, contrats : note-les pour ne plus rater une résiliation.'}</span>
+              <span className="d-btn soft">{deadlines.length ? 'Voir' : 'Commencer'}</span>
+            </button>
+          );
+        })()}
       </section>
 
       <section className="col gap12">

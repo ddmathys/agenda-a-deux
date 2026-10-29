@@ -66,7 +66,23 @@ export function recipients(house, owner) {
 
 // --- Ce qu'il faut envoyer pour un foyer ---
 
-export function dueReminders(house, events, tasks, now) {
+/** Même jour, n mois plus tard (le 31 devient le dernier jour du mois). */
+export function addMonths(key, n) {
+  const [y, m, d] = key.split('-').map(Number);
+  const last = new Date(Date.UTC(y, m - 1 + n + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m - 1 + n, Math.min(d, last))).toISOString().slice(0, 10);
+}
+
+/** Prochaine échéance : un abonnement passé est reporté au cycle suivant (comme dans l'app). */
+export function deadlineNext(d, today) {
+  const renews = d.kind === 'abo' || d.kind === 'assurance' || d.kind === 'contrat';
+  if (!renews || !d.every) return d.next;
+  let k = d.next;
+  for (let i = 0; k < today && i < 600; i++) k = addMonths(k, d.every);
+  return k;
+}
+
+export function dueReminders(house, events, tasks, now, deadlines = []) {
   const today = todayZurich(new Date(now));
   const near = new Set([addDays(today, -1), today, addDays(today, 1), addDays(today, 2)]);
   const out = [];
@@ -104,6 +120,22 @@ export function dueReminders(house, events, tasks, now) {
   for (const t of tasks) {
     if (t.done || !t.due || !t.time || !near.has(t.due)) continue;
     add(`task-${t.id}-${t.due}-${t.time}`, zurich(t.due, t.time), recipients(house, t.owner), `À faire · ${t.title}`, `${t.time}`);
+  }
+
+  // Échéances : à 9 h, un mois, une semaine et la veille avant de devoir résilier (ou avant l'échéance).
+  for (const d of deadlines) {
+    const next = deadlineNext(d, today);
+    const cancel = d.notice ? addDays(addMonths(next, -d.notice), -1) : null;
+    const key = cancel && cancel >= today ? cancel : next;
+    const what = key === cancel
+      ? `Résilier ${d.title} au plus tard le ${dayLabel(cancel)}`
+      : d.kind === 'entretien' || d.kind === 'admin' ? `${d.title} : à faire le ${dayLabel(next)}` : `${d.title} : renouvelé le ${dayLabel(next)}`;
+    const body = [d.provider, d.amount ? `${d.amount} CHF${d.per === 'year' ? '/an' : '/mois'}` : '', key === cancel ? `sinon renouvelé le ${dayLabel(next)}` : ''].filter(Boolean).join(' · ');
+    for (const [n, label] of [[30, 'Dans un mois'], [7, 'Dans une semaine'], [1, 'Demain']]) {
+      const day = addDays(key, -n);
+      if (day !== today) continue;
+      add(`dl-${d.id}-${key}-${n}`, zurich(day, '09:00'), recipients(house, d.owner), `📄 ${label} · ${what}`, body || 'Abos & contrats');
+    }
   }
 
   // Résumé du matin, pour chacun : ses rendez-vous et ses tâches du jour.

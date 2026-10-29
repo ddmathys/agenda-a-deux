@@ -64,13 +64,15 @@ export const reminders = onSchedule(
     const houses = await db.collection('households').get();
     for (const h of houses.docs) {
       const house = { id: h.id, ...h.data() };
-      const [evSnap, tkSnap] = await Promise.all([
+      const [evSnap, tkSnap, dlSnap] = await Promise.all([
         h.ref.collection('events').get(),
         h.ref.collection('tasks').where('done', '==', false).get(),
+        h.ref.collection('deadlines').get(),
       ]);
       const events = evSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       const tasks = tkSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const due = dueReminders(house, events, tasks, now).filter((r) => r.at <= now && r.at > now - WINDOW_MS);
+      const deadlines = dlSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const due = dueReminders(house, events, tasks, now, deadlines).filter((r) => r.at <= now && r.at > now - WINDOW_MS);
       for (const r of due) await once(h.id, r.key, r.uids, r.payload);
     }
   },

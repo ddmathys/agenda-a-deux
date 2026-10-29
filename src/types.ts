@@ -85,6 +85,28 @@ export interface Task {
   doneOn: string | null;
 }
 
+/** Sorte d'échéance : un abonnement, une assurance, un contrat, un entretien ou des papiers. */
+export type DeadlineKind = 'abo' | 'assurance' | 'contrat' | 'entretien' | 'admin';
+
+/**
+ * Une échéance du foyer : abonnement, contrat, entretien… qui revient tous les `every` mois.
+ * `next` est la prochaine date (renouvellement, fin de contrat, entretien à faire).
+ * Avec un préavis, il faut résilier `notice` mois avant `next`.
+ */
+export interface Deadline {
+  id: string;
+  title: string;
+  provider: string;
+  kind: DeadlineKind;
+  amount: number | null; // CHF
+  per: 'month' | 'year'; // le montant est par mois ou par an
+  every: number; // mois entre deux échéances ; 0 = une seule fois
+  next: string; // YYYY-MM-DD
+  notice: number; // préavis en mois (0 = aucun)
+  owner: Owner;
+  note: string;
+}
+
 export const DEFAULT_LISTS: ListDef[] = [
   { id: 'maison', name: 'Maison', bg: '#FF7A1A', fg: '#17162B', icon: 'M4 11l8-6.5 8 6.5M6 9.5V20h12V9.5M10 20v-5h4v5' },
   { id: 'courses', name: 'Courses', bg: '#2BD4A0', fg: '#17162B', icon: 'M5 7h14l-1.5 11h-11zM9 7a3 3 0 0 1 6 0' },

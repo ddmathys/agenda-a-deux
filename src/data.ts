@@ -8,7 +8,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { todayKey } from './dates';
-import { DEFAULT_LISTS, type EventItem, type Home, type Household, type Ideas, type Task } from './types';
+import { DEFAULT_LISTS, type Deadline, type EventItem, type Home, type Household, type Ideas, type Task } from './types';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -98,6 +98,19 @@ function useCollection<T>(hid: string, name: string): T[] {
 
 export const useEvents = (hid: string) => useCollection<EventItem>(hid, 'events');
 export const useTasks = (hid: string) => useCollection<Task>(hid, 'tasks');
+export const useDeadlines = (hid: string) => useCollection<Deadline>(hid, 'deadlines');
+
+// --- Échéances (abonnements, contrats, entretien) ---
+
+export type DeadlineInput = Omit<Deadline, 'id'>;
+
+export const addDeadline = (hid: string, uid: string, d: DeadlineInput) =>
+  addDoc(collection(db, 'households', hid, 'deadlines'), { ...d, createdBy: uid, createdAt: serverTimestamp() });
+
+export const updateDeadline = (hid: string, id: string, d: Partial<DeadlineInput>) =>
+  updateDoc(doc(db, 'households', hid, 'deadlines', id), d);
+
+export const deleteDeadline = (hid: string, id: string) => deleteDoc(doc(db, 'households', hid, 'deadlines', id));
 
 // --- Foyer ---
 

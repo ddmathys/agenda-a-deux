@@ -42,7 +42,7 @@ service cloud.firestore {
         && request.resource.data.people.diff(resource.data.people).affectedKeys().hasOnly([request.auth.uid]);
 
       match /{coll}/{docId} {
-        allow read, write: if (coll == 'events' || coll == 'tasks') && isMember(hid);
+        allow read, write: if (coll == 'events' || coll == 'tasks' || coll == 'deadlines') && isMember(hid);
         // Idées de sorties : écrites par le serveur ; le couple ne peut que noter l'idée choisie.
         allow read: if coll == 'ideas' && isMember(hid);
         allow update: if coll == 'ideas' && isMember(hid)

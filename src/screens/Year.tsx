@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { ageOn, eventsOn, stayDays } from '../birthday';
 import { cap, MONTHS, MONTHS_SHORT, shortDate, todayKey } from '../dates';
 import { ownerChoices, toneOf } from '../tones';
-import type { EventItem, Household, Task } from '../types';
+import type { Deadline, EventItem, Household, Task } from '../types';
+import { addMonths, cancelBy, KIND_INFO, nextOf } from '../deadlines';
 import { MonthDetail } from './MonthDetail';
 import { Icon, scrollToTop } from '../ui';
 import { VacationWidget } from '../widgets';
@@ -16,6 +17,8 @@ interface Props {
   onEditTask: (t: Task) => void;
   onPick: (day: string | null) => void;
   onAdd: (date: string) => void;
+  deadlines: Deadline[];
+  onEditDeadline: (d: Deadline) => void;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -26,7 +29,7 @@ const LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
  * Chaque mois garde son calendrier (vacances en capsules de couleur, anniversaires
  * en rond jaune) et ses annotations : les vacances et les anniversaires du mois.
  */
-export function Year({ h, me, events, tasks, onEditEvent, onEditTask, onPick, onAdd }: Props) {
+export function Year({ h, me, events, tasks, onEditEvent, onEditTask, onPick, onAdd, deadlines, onEditDeadline }: Props) {
   const today = todayKey();
   const now = new Date();
   // Décalage en mois depuis le mois en cours (les flèches avancent de 12 mois).
@@ -56,6 +59,21 @@ export function Year({ h, me, events, tasks, onEditEvent, onEditTask, onPick, on
         return { e, k: `${y}-${md}` };
       })
       .sort((a, b) => a.k.localeCompare(b.k));
+
+  // Les échéances du mois : résiliations à faire et renouvellements (y compris les cycles suivants).
+  const deadlinesOf = (prefix: string) =>
+    deadlines.flatMap((d) => {
+      const out: { d: Deadline; k: string; what: string }[] = [];
+      let next = nextOf(d, today);
+      for (let i = 0; i < 24 && next <= last; i++) {
+        const c = cancelBy({ ...d, next }, next);
+        if (c && c.startsWith(prefix) && c >= today) out.push({ d, k: c, what: 'Résilier au plus tard' });
+        if (next.startsWith(prefix)) out.push({ d, k: next, what: d.kind === 'entretien' || d.kind === 'admin' ? 'À faire' : d.every ? 'Renouvellement' : 'Fin' });
+        if (!d.every) break;
+        next = addMonths(next, d.every);
+      }
+      return out;
+    }).sort((a, b) => a.k.localeCompare(b.k));
 
   if (open !== null) {
     return (
@@ -111,9 +129,11 @@ export function Year({ h, me, events, tasks, onEditEvent, onEditTask, onPick, on
           const bdayDays = new Set(bdays.map((b) => b.k));
           const ownersOn = (k: string) => [...new Set(monthStays.filter((s) => s.date <= k && k <= s.dateEnd!).map((s) => s.owner))];
           const sig = (k?: string) => (k ? ownersOn(k).join() : '');
+          const dls = deadlinesOf(prefix);
           const summary = [
             monthStays.length && `${monthStays.length} vacances`,
             bdays.length && `${bdays.length} anniv.`,
+            dls.length && `${dls.length} échéance${dls.length > 1 ? 's' : ''}`,
           ].filter(Boolean).join(' · ');
           const openMonth = () => { setOpen({ y, m }); scrollToTop(); };
 
@@ -171,6 +191,16 @@ export function Year({ h, me, events, tasks, onEditEvent, onEditTask, onPick, on
                       <span className="col grow min0 gap2">
                         <span className="d-title ell">{e.title}</span>
                         <span className="d-meta">{[shortDate(k), ageOn(e, k)].filter(Boolean).join(' · ')}</span>
+                      </span>
+                    </button>
+                  ))}
+                  {dls.map(({ d, k, what }) => (
+                    <button key={`${d.id}-${k}`} className={`d-row${k < today ? ' past' : ''}`} onClick={() => onEditDeadline(d)}>
+                      <span className="d-bar" style={{ background: toneOf(h, d.owner).c }} />
+                      <span className="d-ico" style={{ background: KIND_INFO[d.kind].tint }} aria-hidden="true">{KIND_INFO[d.kind].icon}</span>
+                      <span className="col grow min0 gap2">
+                        <span className="d-title ell">{d.title}{d.provider ? ` · ${d.provider}` : ''}</span>
+                        <span className="d-meta">{what} · {shortDate(k)}</span>
                       </span>
                     </button>
                   ))}

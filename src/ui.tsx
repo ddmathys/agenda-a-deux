@@ -8,7 +8,7 @@ export function scrollToTop() {
   document.querySelector('.app')?.scrollTo({ top: 0 });
 }
 
-export type Tab = 'today' | 'year' | 'birthdays' | 'vacations';
+export type Tab = 'today' | 'year' | 'birthdays' | 'vacations' | 'deadlines';
 
 const stroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
 

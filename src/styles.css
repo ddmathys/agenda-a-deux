@@ -983,6 +983,23 @@ p.plan-empty { margin: 0; min-height: 0; padding-top: 10px; padding-bottom: 2px;
 .d-next { justify-content: center; }
 .d-btn svg { width: 16px; height: 16px; }
 
+/* Échéances : abonnements, assurances, contrats, entretien, papiers */
+.dl-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.dl-kinds button, .dl-filter button { min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--white); font-size: 13.5px; font-weight: 700; color: var(--muted2); display: inline-flex; align-items: center; gap: 6px; }
+.dl-kinds button.on, .dl-filter button.on { background: var(--ink); border-color: var(--ink); color: var(--white); }
+.dl-filter { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.dl-filter button { flex-shrink: 0; }
+.dl-total { font-size: 13px; }
+.dl-provider { font-weight: 600; color: var(--muted); }
+.dl-side { align-items: flex-end; flex-shrink: 0; }
+.dl-when { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+.dl-when.hot { color: var(--coral-ink); font-weight: 500; }
+.dl-when.late { color: #A81D33; font-weight: 500; }
+.d-link { min-height: 40px; border: none; background: none; display: inline-flex; align-items: center; gap: 4px; font-size: 13.5px; font-weight: 800; color: var(--coral-ink); flex-shrink: 0; }
+.d-link svg { width: 16px; height: 16px; }
+.d-free.plain { width: 100%; background: transparent; text-align: left; cursor: pointer; }
+.d-free.plain .d-btn { flex-shrink: 0; }
+
 /* Mural : un mois = un bloc comme un jour de l'agenda */
 .ym-num { font-size: 22px; }
 .ym-cal { width: 100%; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 4px; padding: 12px 10px 10px; border: none; background: transparent; color: var(--ink); cursor: pointer; }

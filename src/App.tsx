@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { User } from 'firebase/auth';
-import { useAuth, useEvents, useHousehold, useTasks } from './data';
+import { useAuth, useDeadlines, useEvents, useHousehold, useTasks } from './data';
+import { Deadlines } from './screens/Deadlines';
+import { DeadlineSheet } from './screens/DeadlineSheet';
 import { AddSheet, type SheetMode } from './screens/AddSheet';
 import { Today } from './screens/Today';
 import { Year } from './screens/Year';
@@ -13,7 +15,7 @@ import { CocoHello } from './screens/CocoHello';
 import { useForecast } from './weather';
 import { Chat } from './screens/Chat';
 import { clearInvite } from './invite';
-import type { EventItem, Household, Task } from './types';
+import type { Deadline, EventItem, Household, Task } from './types';
 import { Nav, scrollToTop, type Tab } from './ui';
 
 export function App() {
@@ -39,6 +41,9 @@ function Shell({ h, user }: { h: Household; user: User }) {
   const forecast = useForecast(h.home);
   const events = useEvents(h.id);
   const tasks = useTasks(h.id);
+  const deadlines = useDeadlines(h.id);
+  // Échéance ouverte : null = fermé, 'new' = nouvelle.
+  const [dl, setDl] = useState<Deadline | 'new' | null>(null);
   const me = user.uid;
 
   // Déjà dans un agenda : un lien d'invitation ouvert plus tard ne sert plus.
@@ -57,20 +62,22 @@ function Shell({ h, user }: { h: Household; user: User }) {
 
   return (
     <div className="app">
-      {tab === 'today' && <Today h={h} me={me} events={events} tasks={tasks} onAdd={(date) => setSheet({ kind: 'new', date })} onShare={() => setSharing(true)} forecast={forecast} onProfile={() => setProfile(true)} onCoco={(q) => setChat({ ask: q })} {...edit} />}
-      {tab === 'year' && <Year h={h} me={me} events={events} tasks={tasks} onPick={setPicked} onAdd={(date) => setSheet({ kind: 'new', date })} {...edit} />}
+      {tab === 'today' && <Today h={h} me={me} events={events} tasks={tasks} deadlines={deadlines} onDeadlines={() => go('deadlines')} onEditDeadline={setDl} onAdd={(date) => setSheet({ kind: 'new', date })} onShare={() => setSharing(true)} forecast={forecast} onProfile={() => setProfile(true)} onCoco={(q) => setChat({ ask: q })} {...edit} />}
+      {tab === 'year' && <Year h={h} me={me} events={events} tasks={tasks} deadlines={deadlines} onEditDeadline={setDl} onPick={setPicked} onAdd={(date) => setSheet({ kind: 'new', date })} {...edit} />}
+      {tab === 'deadlines' && <Deadlines h={h} items={deadlines} onBack={() => go('today')} onAdd={() => setDl('new')} onEdit={setDl} />}
       {tab === 'birthdays' && (
         <Birthdays h={h} events={events} onAdd={() => setSheet({ kind: 'new', preset: 'bday' })} onEditEvent={edit.onEditEvent} />
       )}
       {tab === 'vacations' && (
         <Vacations h={h} me={me} events={events} onBack={() => go('today')} onAdd={() => setSheet({ kind: 'new', preset: 'vac' })} onEditEvent={edit.onEditEvent} />
       )}
-      <Nav tab={tab} onTab={(t) => go(t)} onAdd={() => setSheet(picked ? { kind: 'new', date: picked } : { kind: 'new' })} onChat={() => setChat({})} />
+      <Nav tab={tab} onTab={(t) => go(t)} onAdd={() => (tab === 'deadlines' ? setDl('new') : setSheet(picked ? { kind: 'new', date: picked } : { kind: 'new' }))} onChat={() => setChat({})} />
       {profile && <ProfileSheet h={h} me={me} forecast={forecast} onShare={() => { setProfile(false); setSharing(true); }} onClose={() => setProfile(false)} />}
       {hello.on && !chat && !sheet && (
         <CocoHello h={h} me={me} events={events} tasks={tasks} forecast={forecast} onClose={hello.close} onChat={() => { hello.close(); setChat({}); }} />
       )}
       {chat && <Chat h={h} me={me} ask={chat.ask} onClose={() => setChat(null)} />}
+      {dl && <DeadlineSheet key={dl === 'new' ? 'new' : dl.id} h={h} me={me} item={dl === 'new' ? null : dl} onClose={() => setDl(null)} />}
       {sharing && <ShareSheet h={h} me={me} onClose={() => setSharing(false)} />}
       {sheet && (
         <AddSheet
