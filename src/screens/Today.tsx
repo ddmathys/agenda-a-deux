@@ -20,15 +20,15 @@ const dayDate = (k: string) => {
   return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`;
 };
 
-/** « MER 28 OCT · 18:20 » */
-const stamp = (d: Date) => `${DAYS[d.getDay()].slice(0, 3)} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()].replace('.', '')} · ${hm(d)}`.toUpperCase();
+/** « MER 28 OCT » */
+const stamp = (d: Date) => `${DAYS[d.getDay()].slice(0, 3)} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()].replace('.', '')}`.toUpperCase();
 
-/** L'heure qui avance : rafraîchie chaque demi-minute et au retour dans l'app. */
-function useNow() {
+/** L'heure qui avance : rafraîchie toutes les 10 secondes et au retour dans l'app. */
+export function useNow() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const tick = () => setNow(new Date());
-    const id = setInterval(tick, 30000);
+    const id = setInterval(tick, 10000);
     const vis = () => {
       if (document.visibilityState === 'visible') tick();
     };
@@ -114,11 +114,33 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
   // Pour le point de Coco : le premier jour sans rendez-vous d'ici dimanche.
   const freeDay = days.slice(1).find((k) => evOn(k).every((e) => e.birthday));
 
+  // Le point de Coco se ferme d'un « C'est noté » : il revient le lendemain ou si l'agenda change.
+  const pointKey = `coco-point-${me}`;
+  const pointSig = `${today}|${days.map((k) => eventsOn(events, k).map((e) => `${e.id}${e.start ?? ''}`).join(',')).join('|')}`;
+  const [seen, setSeen] = useState(() => {
+    try {
+      return localStorage.getItem(pointKey) ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const closePoint = () => {
+    setSeen(pointSig);
+    try {
+      localStorage.setItem(pointKey, pointSig);
+    } catch {
+      /* rien */
+    }
+  };
+
   return (
     <div className="screen dash">
       <header className="d-head">
         <div className="row between center">
-          <span className="d-stamp">{stamp(now)}</span>
+          <div className="d-now">
+            <span className="d-clock">{hm(now)}</span>
+            <span className="d-stamp">{stamp(now)}</span>
+          </div>
           <div className="row center gap8">
             {!partner && (
               <button className="invite-chip" onClick={onShare} title="Ta moitié n’est pas encore là">
@@ -141,10 +163,11 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
         <span className="version">{__APP_VERSION__}</span>
       </header>
 
-      <section className="d-coco" aria-labelledby="coco-point">
+      {seen !== pointSig && <section className="d-coco" aria-labelledby="coco-point">
         <div className="row center gap8">
           <span className="d-coco-face" aria-hidden="true">🐥</span>
-          <span id="coco-point" className="d-coco-kicker">Le point de Coco</span>
+          <span id="coco-point" className="d-coco-kicker grow">Le point de Coco</span>
+          <button className="d-coco-ok" onClick={closePoint}>{Icon.check}C’est noté</button>
         </div>
         <p className="d-coco-text">
           <CocoPoint h={h} me={me} days={days} evOn={evOn} nowHM={hm(now)} evening={evening} freeDay={freeDay} />
@@ -155,7 +178,7 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
           </button>
           <button className="d-btn" onClick={() => onCoco('Fais-moi le résumé de notre semaine')}>Résumé de la semaine</button>
         </div>
-      </section>
+      </section>}
 
       <div className="d-pills" role="group" aria-label="Filtrer par personne">
         {pills.map((p) => {
@@ -265,7 +288,7 @@ function CocoPoint({ h, me, days, evOn, nowHM, evening, freeDay }: {
 }
 
 /** Un jour de l'agenda : la date à gauche, les rendez-vous et les tâches du jour à droite. */
-function DayBlock({ h, k, kicker, title, isToday, evs, tks, today, nowM, weather, onAdd, onCoco, onEditEvent, onEditTask }: {
+export function DayBlock({ h, k, kicker, title, isToday, evs, tks, today, nowM, weather, onAdd, onCoco, onEditEvent, onEditTask }: {
   h: Household; k: string; kicker: string; title: string; isToday: boolean; evs: EventItem[]; tks: Task[]; today: string; nowM?: number;
   weather?: { code: number; tmax: number; tmin: number; rain: number }; onAdd: () => void; onCoco: () => void;
   onEditEvent: (e: EventItem) => void; onEditTask: (t: Task) => void;
@@ -277,7 +300,7 @@ function DayBlock({ h, k, kicker, title, isToday, evs, tks, today, nowM, weather
   };
   const allDay = evs.filter((e) => !e.start);
   const timed = evs.filter((e) => e.start);
-  const free = evs.every((e) => e.birthday) && !tks.some((t) => !t.done);
+  const free = k >= today && evs.every((e) => e.birthday) && !tks.some((t) => !t.done);
 
   return (
     <section className={isToday ? 'd-day today' : 'd-day'} aria-label={`${title}, ${dayDate(k)}`}>

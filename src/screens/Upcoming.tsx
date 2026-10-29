@@ -1,24 +1,30 @@
 import { useState } from 'react';
-import { addDays, dayGroupTitle, fromKey, isoWeek, keyOf, mondayOf, shortDate, todayKey } from '../dates';
-import { ageOn, eventsOn, stayOn } from '../birthday';
-import { toggleTask } from '../data';
+import { addDays, DAYS, fromKey, isoWeek, keyOf, longLabel, mondayOf, shortDate } from '../dates';
+import { eventsOn } from '../birthday';
 import { toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
-import { Avatar, BirthdayMark, Check, Empty, Icon, RepeatMark, VacationMark } from '../ui';
+import { Icon } from '../ui';
+import type { Forecast } from '../weather';
+import { DayBlock, useNow } from './Today';
 
 interface Props {
   h: Household;
   events: EventItem[];
   tasks: Task[];
   day?: string; // jour choisi depuis Aujourd'hui
+  forecast: Forecast | null;
+  onAdd: (date: string) => void;
+  onCoco: (question: string) => void;
   onEditTask: (t: Task) => void;
   onEditEvent: (e: EventItem) => void;
 }
 
 const LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
-export function Upcoming({ h, events, tasks, day, onEditTask, onEditEvent }: Props) {
-  const today = todayKey();
+export function Upcoming({ h, events, tasks, day, forecast, onAdd, onCoco, onEditTask, onEditEvent }: Props) {
+  const now = useNow();
+  const today = keyOf(now);
+  const tomorrow = keyOf(addDays(now, 1));
   const [sel, setSel] = useState(day ?? today);
   const [monday, setMonday] = useState(() => mondayOf(day ? fromKey(day) : new Date()));
 
@@ -38,14 +44,8 @@ export function Upcoming({ h, events, tasks, day, onEditTask, onEditEvent }: Pro
     setSel(keyOf(m) <= today && today <= sunday ? today : keyOf(m));
   };
 
-  // Les 7 jours à partir du jour choisi, en sautant les jours vides.
-  const groups = Array.from({ length: 7 }, (_, i) => keyOf(addDays(fromKey(sel), i)))
-    .map((k) => ({
-      k,
-      evs: eventsOn(events, k).sort((a, b) => (a.start ?? '').localeCompare(b.start ?? '')),
-      tks: tasks.filter((t) => t.due === k),
-    }))
-    .filter((g) => g.evs.length + g.tks.length > 0);
+  // Les 7 jours à partir du jour choisi, présentés comme sur Aujourd'hui.
+  const days = Array.from({ length: 7 }, (_, i) => keyOf(addDays(fromKey(sel), i)));
 
   return (
     <div className="screen">
@@ -82,52 +82,29 @@ export function Upcoming({ h, events, tasks, day, onEditTask, onEditEvent }: Pro
       </div>
 
       <div className="col gap18">
-        {groups.length === 0 && <Empty>Rien de prévu sur les 7 jours à partir d’ici.</Empty>}
-        {groups.map((g) => (
-          <section key={g.k} className="day-group">
-            <div className="day-badge" aria-hidden="true">
-              <span className="day-badge-n">{fromKey(g.k).getDate()}</span>
-              <span className="day-badge-m">{shortDate(g.k).split(' ')[1]}</span>
-            </div>
-            <div className="col gap8 grow min0">
-              <h2 className="day-title">{dayGroupTitle(g.k)}<span className="sr-only"> {shortDate(g.k)}</span></h2>
-              {g.evs.map((e) => {
-                const t = toneOf(h, e.owner);
-                return (
-                  <button key={e.id} className="ev-card" style={{ background: t.s }} onClick={() => onEditEvent(e)}>
-                    <span className="ev-hour">{e.start ?? 'Jour'}</span>
-                    <span className="col grow min0 gap2">
-                      <span className="ev-title row gap6 center">
-                        <span className="ell">{e.title}</span>
-                        {e.seriesId && <RepeatMark />}
-                        {e.birthday && <BirthdayMark />}
-                        {e.vacation && <VacationMark />}
-                      </span>
-                      <span className="ev-meta" style={{ color: t.t }}>
-                        {[e.birthday && ageOn(e, g.k), e.dateEnd && stayOn(e, g.k), e.end && `jusqu’à ${e.end}`, e.place].filter(Boolean).join(' · ') || t.name}
-                      </span>
-                    </span>
-                    <Avatar h={h} owner={e.owner} size={30} />
-                  </button>
-                );
-              })}
-              {g.tks.length > 0 && (
-                <div className="card-list">
-                  {g.tks.map((tk) => {
-                    const t = toneOf(h, tk.owner);
-                    return (
-                      <div key={tk.id} className="task-row">
-                        <Check h={h} task={tk} onToggle={() => toggleTask(h.id, tk)} />
-                        <button className={tk.done ? 'task-title done' : 'task-title'} onClick={() => onEditTask(tk)}>{tk.title}</button>
-                        <span className="chip" style={{ background: t.s, color: t.t }}>{tk.time ?? t.name}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </section>
-        ))}
+        {days.map((k) => {
+          const d = fromKey(k);
+          const when = k === today ? 'aujourd’hui' : k === tomorrow ? 'demain' : longLabel(k).toLowerCase();
+          return (
+            <DayBlock
+              key={k}
+              h={h}
+              k={k}
+              kicker={k === today ? 'AUJ.' : k === tomorrow ? 'DEMAIN' : DAYS[d.getDay()].slice(0, 3).toUpperCase()}
+              title={k === today ? 'Aujourd’hui' : k === tomorrow ? 'Demain' : longLabel(k)}
+              isToday={k === today}
+              evs={eventsOn(events, k).sort((a, b) => (a.start ?? '').localeCompare(b.start ?? ''))}
+              tks={tasks.filter((t) => t.due === k)}
+              today={today}
+              nowM={k === today ? now.getHours() * 60 + now.getMinutes() : undefined}
+              weather={forecast?.[k]}
+              onAdd={() => onAdd(k)}
+              onCoco={() => onCoco(`Trouve-moi une activité pour ${when}`)}
+              onEditEvent={onEditEvent}
+              onEditTask={onEditTask}
+            />
+          );
+        })}
       </div>
     </div>
   );

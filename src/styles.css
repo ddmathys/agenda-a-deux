@@ -921,6 +921,8 @@ p.plan-empty { margin: 0; min-height: 0; padding-top: 10px; padding-bottom: 2px;
 .gap18 { gap: 18px; }
 .dash { gap: 26px; }
 .d-head { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+.d-now { display: flex; align-items: baseline; gap: 10px; }
+.d-clock { font-family: var(--serif); font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--ink); }
 .d-stamp { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--muted); }
 .d-hello { font-family: var(--serif); font-weight: 400; font-size: 40px; line-height: 1.05; letter-spacing: -0.01em; overflow-wrap: anywhere; }
 .d-hello em { color: var(--coral-ink); }
@@ -932,6 +934,7 @@ p.plan-empty { margin: 0; min-height: 0; padding-top: 10px; padding-bottom: 2px;
 .d-coco { display: flex; flex-direction: column; gap: 12px; padding: 18px 18px 16px; border-radius: 22px; background: var(--white); box-shadow: var(--shadow); border: 1px solid var(--line); }
 .d-coco-face { width: 30px; height: 30px; border-radius: 50%; background: #FFF0B8; display: flex; align-items: center; justify-content: center; font-size: 17px; }
 .d-coco-kicker { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--purple); }
+.d-coco-ok { min-height: 36px; padding: 0 12px; border: none; border-radius: 999px; background: #E3F7EA; color: #1E6B3A; font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .d-coco-text { margin: 0; font-family: var(--serif); font-size: 19px; line-height: 1.35; color: var(--ink); }
 .d-coco-text em { color: var(--coral-ink); }
 .d-btn { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--line); background: transparent; font-size: 14px; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 6px; }

@@ -58,7 +58,7 @@ function Shell({ h, user }: { h: Household; user: User }) {
   return (
     <div className="app">
       {tab === 'today' && <Today h={h} me={me} events={events} tasks={tasks} onTab={go} onAdd={(date) => setSheet({ kind: 'new', date })} onShare={() => setSharing(true)} forecast={forecast} onProfile={() => setProfile(true)} onCoco={(q) => setChat({ ask: q })} {...edit} />}
-      {tab === 'upcoming' && <Upcoming key={upDay ?? 'today'} h={h} events={events} tasks={tasks} day={upDay} {...edit} />}
+      {tab === 'upcoming' && <Upcoming key={upDay ?? 'today'} h={h} events={events} tasks={tasks} day={upDay} forecast={forecast} onAdd={(date) => setSheet({ kind: 'new', date })} onCoco={(q) => setChat({ ask: q })} {...edit} />}
       {tab === 'year' && <Year h={h} me={me} events={events} tasks={tasks} {...edit} />}
       {tab === 'birthdays' && (
         <Birthdays h={h} events={events} onBack={() => go('today')} onAdd={() => setSheet({ kind: 'new', preset: 'bday' })} onEditEvent={edit.onEditEvent} />
