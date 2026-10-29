@@ -982,6 +982,21 @@ p.plan-empty { margin: 0; min-height: 0; padding-top: 10px; padding-bottom: 2px;
 .d-day { scroll-margin-top: 12px; }
 .d-next { justify-content: center; }
 .d-btn svg { width: 16px; height: 16px; }
+
+/* Mural : un mois = un bloc comme un jour de l'agenda */
+.ym-num { font-size: 22px; }
+.ym-cal { width: 100%; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 4px; padding: 12px 10px 10px; border: none; background: transparent; color: var(--ink); cursor: pointer; }
+.ym-l { font-family: var(--mono); font-size: 10px; color: var(--muted); text-align: center; padding-bottom: 2px; }
+.ym-d { height: 34px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.ym-d.l { border-top-left-radius: 999px; border-bottom-left-radius: 999px; }
+.ym-d.r { border-top-right-radius: 999px; border-bottom-right-radius: 999px; }
+.ym-d.past .ym-n { opacity: 0.45; }
+.ym-n { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #5A5170; }
+.ym-d.on .ym-n { color: var(--ink); }
+.ym-n.bday { background: var(--sun); color: var(--ink); opacity: 1; }
+.ym-d.now .ym-n { box-shadow: inset 0 0 0 2px var(--coral-ink); color: var(--coral-ink); }
+.ym-dots { display: flex; gap: 2px; height: 4px; }
+.ym-dots span { width: 4px; height: 4px; border-radius: 50%; }
 .d-title { font-size: 15px; font-weight: 700; }
 .d-meta { font-size: 13px; font-weight: 600; color: var(--muted); overflow-wrap: anywhere; }
 .d-card .d-task { padding: 0 14px 0 6px; }
