@@ -54,7 +54,7 @@ export function everyLabel(n: number): string {
 }
 
 export const EVERY_CHOICES = [1, 3, 6, 12, 24, 36, 0];
-export const NOTICE_CHOICES = [0, 1, 2, 3, 6];
+export const NOTICE_CHOICES = [0, 1, 2, 3, 4, 6];
 
 export const chf = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(2)} CHF`;
 

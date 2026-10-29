@@ -48,8 +48,8 @@ export function DeadlineSheet({ h, me, item, onClose }: Props) {
     setKind(k);
     if (item) return;
     if (k === 'abo') { setEvery(1); setPer('month'); setNotice(0); }
-    if (k === 'assurance') { setEvery(12); setPer('year'); setNotice(3); }
-    if (k === 'contrat') { setEvery(12); setPer('month'); setNotice(3); }
+    if (k === 'assurance') { setEvery(12); setPer('year'); setNotice(4); }
+    if (k === 'contrat') { setEvery(12); setPer('month'); setNotice(4); }
     if (k === 'entretien') { setEvery(12); setPer('year'); setNotice(0); }
     if (k === 'admin') { setEvery(0); setPer('year'); setNotice(0); }
   };
