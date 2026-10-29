@@ -1,19 +1,18 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { addDays, cap, DAYS, dueLabel, fromKey, keyOf, mondayOf, MONTHS, MONTHS_SHORT, shortDate } from '../dates';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { addDays, cap, DAYS, fromKey, keyOf, mondayOf, MONTHS_SHORT, shortDate } from '../dates';
 import { ageOn, eventsOn, stayOn } from '../birthday';
 import { addTask, toggleTask } from '../data';
 import { ownerChoices, partnerUid, toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
 import { Avatar, BirthdayMark, Check, Icon, RepeatMark, VacationMark, type Tab } from '../ui';
-import { isNice, wmo, type DayWeather, type Forecast } from '../weather';
+import { wmo, type Forecast } from '../weather';
 
 const LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
-/** « Mardi 13 octobre » */
-const longDate = (k: string) => {
-  const d = fromKey(k);
-  return `${cap(DAYS[d.getDay()])} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
-};
+const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const hm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+/** Fin d'un rendez-vous en minutes : l'heure de fin, sinon une heure après le début. */
+const endMins = (e: EventItem) => (e.end && mins(e.end) > mins(e.start!) ? mins(e.end) : mins(e.start!) + 60);
 
 /** « mercredi 28 oct. » */
 const dayDate = (k: string) => {
@@ -21,17 +20,8 @@ const dayDate = (k: string) => {
   return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`;
 };
 
-const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-const hm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-/** Fin d'un rendez-vous en minutes : l'heure de fin, sinon une heure après le début. */
-const endMins = (e: EventItem) => (e.end && mins(e.end) > mins(e.start!) ? mins(e.end) : mins(e.start!) + 60);
-
-/** « Dans 45 min », « Dans 2 h 05 » */
-function inLabel(m: number) {
-  if (m < 60) return `Dans ${Math.max(1, m)} min`;
-  const r = m % 60;
-  return `Dans ${Math.floor(m / 60)} h${r ? ` ${String(r).padStart(2, '0')}` : ''}`;
-}
+/** « MER 28 OCT · 18:20 » */
+const stamp = (d: Date) => `${DAYS[d.getDay()].slice(0, 3)} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()].replace('.', '')} · ${hm(d)}`.toUpperCase();
 
 /** L'heure qui avance : rafraîchie chaque demi-minute et au retour dans l'app. */
 function useNow() {
@@ -51,16 +41,16 @@ function useNow() {
   return now;
 }
 
-/** Nombre de jours entre deux dates « AAAA-MM-JJ ». */
-const daysFrom = (a: string, b: string) => Math.round((fromKey(b).getTime() - fromKey(a).getTime()) / 86400000);
-
-/** Repère du bloc Demain : le temps jusqu'au premier rendez-vous, sinon « Dans 1 jour ». */
-function untilTomorrow(evs: EventItem[], nowM: number) {
-  const first = evs.find((e) => e.start);
-  if (!first) return 'Dans 1 jour';
-  const m = 24 * 60 - nowM + mins(first.start!);
-  return m < 24 * 60 ? `Premier rendez-vous dans ${Math.round(m / 60)} h` : 'Dans 1 jour';
+/** Un montant écrit dans le titre d'une tâche : « Léa 23 CHF », « Nathan 100.- », « CHF 45.50 ». */
+const AMOUNT = /(?:\bCHF\s*(\d+(?:[.,]\d{1,2})?))|(?:(\d+(?:[.,]\d{1,2})?)\s*(?:CHF\b|chf\b|frs?\b\.?|\.-|\.–))/;
+function amountOf(title: string): { rest: string; value: number } | null {
+  const m = title.match(AMOUNT);
+  if (!m) return null;
+  const value = Number((m[1] ?? m[2]).replace(',', '.'));
+  const rest = title.replace(m[0], '').replace(/\s+[-–:·]\s*$|^\s*[-–:·]\s+/, '').replace(/\s{2,}/g, ' ').trim();
+  return { rest: rest || title, value };
 }
+const chf = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(2)} CHF`;
 
 const byStart = (a: EventItem, b: EventItem) => (a.start ?? '').localeCompare(b.start ?? '');
 
@@ -84,45 +74,30 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
   const [draft, setDraft] = useState('');
   const now = useNow();
   const today = keyOf(now);
-  const tomorrow = keyOf(addDays(now, 1));
   const nowM = now.getHours() * 60 + now.getMinutes();
+  const evening = now.getHours() >= 18 || now.getHours() < 5;
   const keep = (o: string) => filter === 'all' || o === filter;
+  const partner = partnerUid(h, me);
 
-  const monday = mondayOf(now);
-  const week = Array.from({ length: 7 }, (_, i) => keyOf(addDays(monday, i)));
-  const ownersOn = (k: string) => {
-    const set = new Set<string>();
-    eventsOn(events, k).forEach((e) => set.add(e.owner));
-    tasks.filter((t) => t.due === k && !t.done).forEach((t) => set.add(t.owner));
-    return [...set].slice(0, 3);
-  };
-
-  const evToday = eventsOn(events, today).filter((e) => keep(e.owner)).sort(byStart);
-  const evTomorrow = eventsOn(events, tomorrow).filter((e) => keep(e.owner)).sort(byStart);
+  const evOn = (k: string) => eventsOn(events, k).filter((e) => keep(e.owner)).sort(byStart);
   const visible = (t: Task) => keep(t.owner) && (!t.done || t.doneOn === today);
+
+  // La semaine en cours, du lundi au dimanche.
+  const week = Array.from({ length: 7 }, (_, i) => keyOf(addDays(mondayOf(now), i)));
+  const weekCount = week.reduce((n, k) => n + evOn(k).filter((e) => !e.birthday).length, 0);
+
+  // L'agenda : aujourd'hui, demain, puis chaque jour jusqu'au dimanche (le dimanche : aussi lundi).
+  const toSunday = (7 - now.getDay()) % 7;
+  const days = Array.from({ length: Math.max(2, toSunday + 1) }, (_, i) => keyOf(addDays(now, i)));
+  const lastDay = days[days.length - 1];
+
   const taskOrder = (a: Task, b: Task) =>
     Number(a.done) - Number(b.done) || (a.due ?? '9999').localeCompare(b.due ?? '9999') || (a.time ?? '99').localeCompare(b.time ?? '99');
-  // Aujourd'hui : en retard + du jour ; Demain : celles du lendemain ; le reste dans « À faire ».
-  const tkToday = tasks.filter((t) => visible(t) && !!t.due && t.due <= today).sort(taskOrder);
-  const tkTomorrow = tasks.filter((t) => visible(t) && t.due === tomorrow).sort(taskOrder);
-  const tkOther = tasks.filter((t) => visible(t) && (!t.due || t.due > tomorrow)).sort(taskOrder);
-
-  // Le week-end à venir, sans répéter les jours déjà affichés (aujourd'hui, demain).
-  const dow = now.getDay();
-  const sat = addDays(now, dow === 6 ? 7 : dow === 0 ? 6 : 6 - dow);
-  const wk = [keyOf(sat), keyOf(addDays(sat, 1))].filter((k) => k > tomorrow);
-  const wkEvents = (k: string) => eventsOn(events, k).filter((e) => keep(e.owner)).sort(byStart);
-  const wkBusy = wk.reduce((n, k) => n + wkEvents(k).filter((e) => !e.birthday).length, 0);
-  const wkTitle = dow >= 1 && dow <= 5 ? (wk.length === 1 ? 'Et dimanche' : 'Ce week-end') : 'Le week-end prochain';
-  const wkW = wk.map((k) => forecast?.[k]).filter((w): w is DayWeather => !!w);
-  const wkNice = wk.filter((k) => forecast?.[k] && isNice(forecast[k]));
-  let wkSky = '';
-  if (wkW.length === wk.length && wk.length) {
-    if (wkNice.length === wk.length) wkSky = ' et il va faire beau ☀️';
-    else if (!wkNice.length) wkSky = ` et ça s’annonce ${wmo(wkW[0].code).label} ${wmo(wkW[0].code).emoji}`;
-    else wkSky = `, ${DAYS[fromKey(wkNice[0]).getDay()]} sera le plus beau ${wmo(forecast![wkNice[0]].code).emoji}`;
-  }
-  const wkMood = `${wkBusy ? `Vous avez ${wkBusy} rendez-vous` : 'Rien de prévu pour l’instant'}${wkSky}.`;
+  // Aujourd'hui reçoit aussi les tâches en retard ; « À faire » garde celles sans date ou plus tard.
+  const tasksOn = (k: string) => tasks.filter((t) => visible(t) && !!t.due && (k === today ? t.due <= today : t.due === k)).sort(taskOrder);
+  const tkOther = tasks.filter((t) => visible(t) && (!t.due || t.due > lastDay)).sort(taskOrder);
+  const openCount = tkOther.filter((t) => !t.done).length;
+  const due = tkOther.reduce((s, t) => s + (!t.done ? amountOf(t.title)?.value ?? 0 : 0), 0);
 
   const add = async (e: FormEvent) => {
     e.preventDefault();
@@ -131,43 +106,63 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
     setDraft('');
     await addTask(h.id, me, { title, list: h.lists[0]?.id ?? 'maison', due: null, time: null, owner: filter === 'all' ? 'both' : filter });
   };
-  const partner = partnerUid(h, me);
 
   const pills = [{ id: 'all', label: 'Tout' }, ...ownerChoices(h, me)];
+  const wToday = forecast?.[today];
+  const wNight = forecast?.[keyOf(addDays(now, 1))];
+
+  // Pour le point de Coco : le premier jour sans rendez-vous d'ici dimanche.
+  const freeDay = days.slice(1).find((k) => evOn(k).every((e) => e.birthday));
 
   return (
-    <div className="screen">
-      <header className="hello">
-        <span className="deco-a" aria-hidden="true" />
-        <span className="deco-b" aria-hidden="true" />
-        <div className="col gap2 rel">
-          <span className="hello-date">{longDate(today)}</span>
-          <h1 className="hello-title">{now.getHours() >= 18 || now.getHours() < 5 ? 'Bonsoir' : 'Bonjour'}<br />{h.people[me]?.name}</h1>
-          <span className="version">{__APP_VERSION__}</span>
-        </div>
-        <div className="col rel hello-side">
+    <div className="screen dash">
+      <header className="d-head">
+        <div className="row between center">
+          <span className="d-stamp">{stamp(now)}</span>
           <div className="row center gap8">
+            {!partner && (
+              <button className="invite-chip" onClick={onShare} title="Ta moitié n’est pas encore là">
+                {Icon.share}Inviter ta moitié
+              </button>
+            )}
             <button className="row hello-avs plain" onClick={onProfile} aria-label="Profil : lieu, partage, déconnexion">
-              <Avatar h={h} owner={me} size={40} />
-              {partner && <span className="overlap"><Avatar h={h} owner={partner} size={40} /></span>}
+              <Avatar h={h} owner={me} size={36} />
+              {partner && <span className="overlap"><Avatar h={h} owner={partner} size={36} /></span>}
             </button>
           </div>
-          {!partner && (
-            <button className="invite-chip" onClick={onShare} title="Ta moitié n’est pas encore là">
-              {Icon.share}Inviter ta moitié
-            </button>
-          )}
         </div>
+        <h1 className="d-hello">{evening ? 'Bonsoir' : 'Bonjour'}, <em>{h.people[me]?.name}</em></h1>
+        {wToday && (
+          <button className="d-weather plain" onClick={onProfile}>
+            <span aria-hidden="true">{wmo(wToday.code).emoji}</span>
+            {wToday.tmax}° {wmo(wToday.code).label.toLowerCase()} · {wNight ? `${Math.min(wToday.tmin, wNight.tmin)}°` : `${wToday.tmin}°`} cette nuit{h.home ? ` · ${h.home.name}` : ''}
+          </button>
+        )}
+        <span className="version">{__APP_VERSION__}</span>
       </header>
 
-      <Focus h={h} today={evToday} nowM={nowM} onOpen={onEditEvent} />
+      <section className="d-coco" aria-labelledby="coco-point">
+        <div className="row center gap8">
+          <span className="d-coco-face" aria-hidden="true">🐥</span>
+          <span id="coco-point" className="d-coco-kicker">Le point de Coco</span>
+        </div>
+        <p className="d-coco-text">
+          <CocoPoint h={h} me={me} days={days} evOn={evOn} nowHM={hm(now)} evening={evening} freeDay={freeDay} />
+        </p>
+        <div className="row gap8 wrap">
+          <button className="d-btn primary" onClick={() => onCoco(`Trouve-moi une activité pour ${freeDay ? dayDate(freeDay) : 'ce week-end'}`)}>
+            Idées pour {freeDay ? (freeDay === days[1] ? 'demain' : DAYS[fromKey(freeDay).getDay()]) : 'le week-end'}
+          </button>
+          <button className="d-btn" onClick={() => onCoco('Fais-moi le résumé de notre semaine')}>Résumé de la semaine</button>
+        </div>
+      </section>
 
-      <div className="pills" role="group" aria-label="Filtrer par personne">
+      <div className="d-pills" role="group" aria-label="Filtrer par personne">
         {pills.map((p) => {
           const on = p.id === filter;
           const tone = p.id !== 'all' ? toneOf(h, p.id) : null;
           return (
-            <button key={p.id} className={on ? 'pill on' : 'pill'} onClick={() => setFilter(p.id)} aria-pressed={on}>
+            <button key={p.id} className={on ? 'on' : ''} onClick={() => setFilter(p.id)} aria-pressed={on}>
               {tone && <span className="pill-dot" style={{ background: tone.c }} />}
               {p.label}
             </button>
@@ -175,47 +170,57 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
         })}
       </div>
 
-      <div className="flow">
-      <DayPlan
-        h={h} k={today} title="Aujourd’hui" when={`Maintenant · ${hm(now)}`} main evs={evToday} tks={tkToday} nowM={nowM} nowHM={hm(now)} today={today} weather={forecast?.[today]}
-        onAdd={() => onAdd(today)} onCoco={() => onCoco('Trouve-moi une activité pour aujourd’hui')} onEditEvent={onEditEvent} onEditTask={onEditTask}
-      />
-      <DayPlan
-        h={h} k={tomorrow} title="Demain" when={untilTomorrow(evTomorrow, nowM)} evs={evTomorrow} tks={tkTomorrow} today={today} weather={forecast?.[tomorrow]}
-        onAdd={() => onAdd(tomorrow)} onCoco={() => onCoco('Trouve-moi une activité pour demain')} onEditEvent={onEditEvent} onEditTask={onEditTask}
-      />
-
-      {wk.length > 0 && (
-        <section className={wkW.length && wkNice.length ? 'weekend sunny' : 'weekend'}>
-          <div className="weekend-head">
-            <span className="when">Dans {daysFrom(today, wk[0])} jours</span>
-            <h2>{wkTitle} {wkNice.length ? '😎' : '🎈'}</h2>
-            <p className="weekend-mood">{wkMood}</p>
-          </div>
-          {wk.map((k) => (
-            <DayPlan
-              key={k} sub h={h} k={k} title={cap(DAYS[fromKey(k).getDay()])} evs={wkEvents(k)}
-              tks={tasks.filter((t) => visible(t) && t.due === k)} today={today} weather={forecast?.[k]}
-              onAdd={() => onAdd(k)} onCoco={() => onCoco(`Trouve-moi une activité pour ${dayDate(k)}`)} onEditEvent={onEditEvent} onEditTask={onEditTask}
-            />
-          ))}
-        </section>
-      )}
-      </div>
-
-      <section className="col gap10">
-        <div className="section-head">
-          <h2>À faire</h2>
-          <span className="sub">sans date ou plus tard</span>
+      <section className="col gap12">
+        <div className="d-sec">
+          <h2>Cette semaine</h2>
+          <span className="d-mono">{weekCount} rendez-vous</span>
         </div>
-        <div className="card-list">
-          {tkOther.map((t) => (
-            <div key={t.id} className="task-row">
-              <Check h={h} task={t} onToggle={() => toggleTask(h.id, t)} />
-              <button className={t.done ? 'task-title done' : 'task-title'} onClick={() => onEditTask(t)}>{t.title}</button>
-              {t.due && <span className="chip" style={{ background: '#FFF3CC', color: '#7A5500' }}>{dueLabel(t.due)}</span>}
-            </div>
-          ))}
+        <div className="d-week">
+          {week.map((k, i) => {
+            const owners = [...new Set(evOn(k).map((e) => e.owner))].slice(0, 3);
+            const cls = k === today ? 'd-wday today' : k < today ? 'd-wday past' : 'd-wday';
+            return (
+              <button key={k} className={cls} onClick={() => onTab('upcoming', k)} aria-label={`${dayDate(k)} : ${owners.length ? 'voir les rendez-vous' : 'rien de prévu'}`}>
+                <span className="d-wlabel">{LETTERS[i]}</span>
+                <span className="d-wnum">{fromKey(k).getDate()}</span>
+                <span className="d-dots">
+                  {owners.map((o) => <span key={o} style={{ background: k === today ? 'currentColor' : toneOf(h, o).c }} />)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="col gap18">
+        {days.map((k, i) => (
+          <DayBlock
+            key={k}
+            h={h}
+            k={k}
+            kicker={i === 0 ? 'AUJ.' : i === 1 ? 'DEMAIN' : DAYS[fromKey(k).getDay()].slice(0, 3).toUpperCase()}
+            title={i === 0 ? (evening ? 'Ce soir' : 'Aujourd’hui') : i === 1 ? 'Demain' : cap(DAYS[fromKey(k).getDay()])}
+            isToday={i === 0}
+            evs={evOn(k)}
+            tks={tasksOn(k)}
+            today={today}
+            nowM={i === 0 ? nowM : undefined}
+            weather={forecast?.[k]}
+            onAdd={() => onAdd(k)}
+            onCoco={() => onCoco(`Trouve-moi une activité pour ${i === 0 ? 'aujourd’hui' : i === 1 ? 'demain' : dayDate(k)}`)}
+            onEditEvent={onEditEvent}
+            onEditTask={onEditTask}
+          />
+        ))}
+      </section>
+
+      <section className="col gap12">
+        <div className="d-sec">
+          <h2>À faire</h2>
+          <span className="d-mono">{openCount} ouverte{openCount > 1 ? 's' : ''}{due > 0 && ` · ${chf(due)} à régler`}</span>
+        </div>
+        <div className="d-card">
+          {tkOther.map((t) => <TaskRow key={t.id} h={h} t={t} today={today} onEdit={onEditTask} showDue />)}
           <form className={tkOther.length ? 'add-inline' : 'add-inline first'} onSubmit={add}>
             <span aria-hidden="true">{Icon.plusSm}</span>
             <label className="sr-only" htmlFor="today-task">Nouvelle tâche</label>
@@ -228,183 +233,121 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
 }
 
 /**
- * La grande carte du haut : ce qui se passe maintenant, ou le prochain rendez-vous
- * avec le temps qu'il reste. En fin de journée, elle annonce le premier rendez-vous de demain.
+ * Le point de Coco, calculé dans l'app : ce qui reste aujourd'hui, demain,
+ * le jour le plus chargé d'ici dimanche et le premier jour libre.
  */
-function Focus({ h, today, nowM, onOpen }: {
-  h: Household; today: EventItem[]; nowM: number;
-  onOpen: (e: EventItem) => void;
+function CocoPoint({ h, me, days, evOn, nowHM, evening, freeDay }: {
+  h: Household; me: string; days: string[]; evOn: (k: string) => EventItem[]; nowHM: string; evening: boolean; freeDay?: string;
 }) {
-  const timed = today.filter((e) => e.start);
-  const cur = timed.find((e) => mins(e.start!) <= nowM && nowM < endMins(e));
-  const next = timed.find((e) => mins(e.start!) > nowM);
-  const where = (e: EventItem) => [e.place, toneOf(h, e.owner).name].filter(Boolean).join(' · ');
-
-  const card = (e: EventItem, kicker: string, meta: string, progress?: number) => {
-    const t = toneOf(h, e.owner);
-    return (
-      <button className="focus" style={{ background: t.c, color: t.on }} onClick={() => onOpen(e)}>
-        <span className="focus-kicker">{kicker}</span>
-        <span className="focus-title">{e.title}</span>
-        <span className="focus-meta">{meta}</span>
-        {progress !== undefined && (
-          <span className="focus-bar" aria-hidden="true"><span style={{ width: `${Math.round(progress * 100)}%` }} /></span>
-        )}
-      </button>
-    );
+  const who = (e: EventItem) => (e.owner !== me ? ` (${toneOf(h, e.owner).name})` : '');
+  const names = (evs: EventItem[]) => {
+    const shown = evs.slice(0, 2).map((e) => `${e.title}${e.start ? ` à ${e.start}` : ''}${who(e)}`);
+    if (evs.length > 2) shown.push(`${evs.length - 2} autre${evs.length > 3 ? 's' : ''}`);
+    return shown.length > 1 ? `${shown.slice(0, -1).join(', ')} et ${shown[shown.length - 1]}` : shown[0];
   };
-
-  if (cur) {
-    const s = mins(cur.start!);
-    const left = endMins(cur) - nowM;
-    return card(
-      cur,
-      `En ce moment · ${inLabel(left).replace('Dans', 'encore')}`,
-      [`${cur.start}${cur.end ? `–${cur.end}` : ''}`, where(cur)].join(' · '),
-      (nowM - s) / (endMins(cur) - s),
-    );
+  const real = (k: string) => evOn(k).filter((e) => !e.birthday);
+  const left = real(days[0]).filter((e) => !e.start || e.start >= nowHM || (e.end ?? '') > nowHM);
+  const tmr = real(days[1]);
+  const parts: ReactNode[] = [];
+  parts.push(left.length ? `${evening ? 'Ce soir' : 'Aujourd’hui'} : ${names(left)}.` : evening ? 'Soirée calme.' : 'Journée calme.');
+  parts.push(tmr.length ? ` Demain : ${names(tmr)}.` : ' Demain, rien de prévu.');
+  const later = days.slice(2);
+  const busiest = later.reduce<string | null>((b, k) => (real(k).length > (b ? real(b).length : 1) ? k : b), null);
+  if (busiest) parts.push(` ${cap(DAYS[fromKey(busiest).getDay()])} chargé (${real(busiest).length} rendez-vous).`);
+  const bdays = days.flatMap((k) => evOn(k).filter((e) => e.birthday).map((e) => ({ e, k })));
+  if (bdays.length) {
+    const { e, k } = bdays[0];
+    const age = ageOn(e, k);
+    parts.push(` 🎂 ${e.title}${age ? ` (${age})` : ''} ${k === days[0] ? 'aujourd’hui' : DAYS[fromKey(k).getDay()]}.`);
   }
-  if (next) {
-    return card(next, `${inLabel(mins(next.start!) - nowM)} · à ${next.start}`, [next.end && `jusqu’à ${next.end}`, where(next)].filter(Boolean).join(' · '));
-  }
-  // Rien en cours ni à venir : les blocs Aujourd'hui / Demain suffisent.
-  return null;
+  if (freeDay && freeDay !== days[1]) parts.push(<> — <em>{DAYS[fromKey(freeDay).getDay()]} est libre.</em></>);
+  return <>{parts}</>;
 }
 
-/** Le programme d'un jour : rendez-vous dans l'ordre, la ligne « maintenant », puis les tâches. */
-function DayPlan({ h, k, title, main = false, sub = false, evs, tks, nowM, nowHM, today, weather, when, onAdd, onCoco, onEditEvent, onEditTask }: {
-  h: Household; k: string; title: string; main?: boolean; sub?: boolean; evs: EventItem[]; tks: Task[]; nowM?: number; nowHM?: string; today: string; weather?: DayWeather; when?: string;
-  onAdd: () => void; onCoco?: () => void; onEditEvent: (e: EventItem) => void; onEditTask: (t: Task) => void;
+/** Un jour de l'agenda : la date à gauche, les rendez-vous et les tâches du jour à droite. */
+function DayBlock({ h, k, kicker, title, isToday, evs, tks, today, nowM, weather, onAdd, onCoco, onEditEvent, onEditTask }: {
+  h: Household; k: string; kicker: string; title: string; isToday: boolean; evs: EventItem[]; tks: Task[]; today: string; nowM?: number;
+  weather?: { code: number; tmax: number; tmin: number; rain: number }; onAdd: () => void; onCoco: () => void;
+  onEditEvent: (e: EventItem) => void; onEditTask: (t: Task) => void;
 }) {
-  const allDay = evs.filter((e) => !e.start);
-  const timed = evs.filter((e) => e.start);
   const status = (e: EventItem) => {
     if (nowM === undefined || !e.start) return '';
     if (endMins(e) <= nowM) return 'past';
     return mins(e.start) <= nowM ? 'now' : '';
   };
-  // La ligne « maintenant » se place avant le premier rendez-vous pas encore terminé.
-  let nowAt = -1;
-  if (nowM !== undefined && timed.length) {
-    nowAt = timed.findIndex((e) => endMins(e) > nowM);
-    if (nowAt === -1) nowAt = timed.length;
-  }
-  const open = tks.filter((t) => !t.done).length;
-  const count = [evs.length && `${evs.length} rendez-vous`, open && `${open} ${open > 1 ? 'tâches' : 'tâche'}`].filter(Boolean).join(' · ');
-
-  const evRow = (e: EventItem) => {
-    const t = toneOf(h, e.owner);
-    const st = status(e);
-    return (
-      <button key={e.id} className={`plan-row ${st}`} style={st === 'now' ? { background: t.s } : undefined} onClick={() => onEditEvent(e)}>
-        <span className="plan-time">
-          <b>{e.start ?? 'Jour'}</b>
-          {e.end && <small>{e.end}</small>}
-        </span>
-        <span className="plan-bar" style={{ background: t.c }} />
-        <span className="col grow min0 gap2">
-          <span className="ev-title row gap6 center">
-            <span className="ell">{e.title}</span>
-            {e.seriesId && <RepeatMark />}
-            {e.birthday && <BirthdayMark />}
-            {e.vacation && <VacationMark />}
-          </span>
-          <span className="ev-meta">{[e.birthday && ageOn(e, k), e.dateEnd && stayOn(e, k), e.place].filter(Boolean).join(' · ') || t.name}</span>
-        </span>
-        {st === 'now' ? <span className="now-chip">En cours</span> : <Avatar h={h} owner={e.owner} size={28} soft />}
-      </button>
-    );
-  };
+  const allDay = evs.filter((e) => !e.start);
+  const timed = evs.filter((e) => e.start);
+  const free = evs.every((e) => e.birthday) && !tks.some((t) => !t.done);
 
   return (
-    <section className={main ? 'plan main' : sub ? 'plan sub' : 'plan'}>
-      <div className="plan-head">
-        <div className="col min0">
-          {when && <span className="when">{when}</span>}
-          <h2>{title}</h2>
-          <span className="plan-date">{dayDate(k)}{count && ` · ${count}`}</span>
-        </div>
-        {weather && (
-          <span className="wx" title={wmo(weather.code).label}>
-            <span className="wx-ico" aria-hidden="true">{wmo(weather.code).emoji}</span>
-            <span className="col">
-              <b>{weather.tmax}°</b>
-              <small>{weather.rain >= 30 ? `💧${weather.rain} %` : `${weather.tmin}°`}</small>
-            </span>
-            <span className="sr-only">{wmo(weather.code).label}</span>
-          </span>
-        )}
-        <button className="plan-add" onClick={onAdd} aria-label={`Ajouter pour ${title.toLowerCase()}`}>{Icon.plusSm}</button>
+    <section className={isToday ? 'd-day today' : 'd-day'} aria-label={`${title}, ${dayDate(k)}`}>
+      <div className="d-date">
+        <span className="d-kicker">{kicker}</span>
+        <span className="d-num">{fromKey(k).getDate()}</span>
       </div>
-      <DayRibbon h={h} evs={timed} nowM={nowM} />
-      <div className="plan-card">
-        {evs.length + tks.length === 0 && <p className="plan-empty">Rien de prévu pour l’instant.</p>}
-        {allDay.map(evRow)}
-        {timed.map((e, i) => [i === nowAt && <NowLine key="now" hm={nowHM!} />, evRow(e)])}
-        {nowAt === timed.length && <NowLine hm={nowHM!} />}
-        {tks.length > 0 && evs.length > 0 && <div className="plan-sep">À faire</div>}
-        {tks.map((t) => {
-          const late = !!t.due && t.due < today && !t.done;
-          const tone = toneOf(h, t.owner);
-          return (
-            <div key={t.id} className="task-row">
-              <Check h={h} task={t} onToggle={() => toggleTask(h.id, t)} />
-              <button className={t.done ? 'task-title done' : 'task-title'} onClick={() => onEditTask(t)}>{t.title}</button>
-              {late ? (
-                <span className="chip" style={{ background: '#FFE3E7', color: '#A81D33' }}>En retard</span>
-              ) : (
-                <span className="chip" style={{ background: tone.s, color: tone.t }}>{t.time ?? tone.name}</span>
-              )}
-            </div>
-          );
-        })}
-        {onCoco && evs.every((e) => e.birthday) && (
-          <button className="plan-ideas" onClick={onCoco}><span aria-hidden="true">🐥</span>Trouve-moi une activité</button>
+      <div className="col gap8 grow min0">
+        <div className="d-dayhead">
+          <span className="d-daytitle">{title}</span>
+          {weather && (
+            <span className="d-mono" title={wmo(weather.code).label}>
+              <span aria-hidden="true">{wmo(weather.code).emoji} </span>
+              {weather.tmax}° / {weather.rain >= 30 ? `💧${weather.rain} %` : `${weather.tmin}°`}
+              <span className="sr-only">{wmo(weather.code).label}</span>
+            </span>
+          )}
+          <button className="d-add" onClick={onAdd} aria-label={`Ajouter pour ${dayDate(k)}`}>{Icon.plusSm}</button>
+        </div>
+        {evs.length + tks.length > 0 && (
+          <div className="d-card">
+            {[...allDay, ...timed].map((e) => {
+              const t = toneOf(h, e.owner);
+              const st = status(e);
+              const time = e.start ? `${e.start}${e.end ? `–${e.end}` : ''}` : e.birthday ? '' : 'Journée';
+              const meta = [t.name, time, e.birthday && ageOn(e, k), e.dateEnd && stayOn(e, k), e.place].filter(Boolean).join(' · ');
+              return (
+                <button key={e.id} className={`d-row ${st}`} onClick={() => onEditEvent(e)}>
+                  <span className="d-bar" style={{ background: t.c }} />
+                  <span className="col grow min0 gap2">
+                    <span className="d-title row gap6 center">
+                      <span className="ell">{e.title}</span>
+                      {e.birthday && <BirthdayMark />}
+                      {e.vacation && <VacationMark />}
+                    </span>
+                    <span className="d-meta">{meta}</span>
+                  </span>
+                  {st === 'now' ? <span className="now-chip">En cours</span> : e.seriesId && <RepeatMark />}
+                </button>
+              );
+            })}
+            {tks.map((t) => <TaskRow key={t.id} h={h} t={t} today={today} onEdit={onEditTask} />)}
+          </div>
+        )}
+        {free && (
+          <div className="d-free">
+            <span>Journée libre</span>
+            <button className="d-btn soft" onClick={onCoco}><span aria-hidden="true">🐥</span> Trouver une activité</button>
+          </div>
         )}
       </div>
     </section>
   );
 }
 
-function NowLine({ hm }: { hm: string }) {
+function TaskRow({ h, t, today, onEdit, showDue = false }: { h: Household; t: Task; today: string; onEdit: (t: Task) => void; showDue?: boolean }) {
+  const amount = amountOf(t.title);
+  const late = !!t.due && t.due < today && !t.done;
   return (
-    <div className="now-line" role="note" aria-label={`Il est ${hm}`}>
-      <span>{hm}</span>
-    </div>
-  );
-}
-
-/**
- * La réglette du jour, de 7 h à 23 h : chaque rendez-vous est un bloc coloré à sa place.
- * Pour aujourd'hui, la partie passée est grisée et un curseur montre l'heure qu'il est.
- */
-function DayRibbon({ h, evs, nowM }: { h: Household; evs: EventItem[]; nowM?: number }) {
-  let from = 7 * 60;
-  let to = 23 * 60;
-  for (const e of evs) {
-    from = Math.min(from, Math.floor(mins(e.start!) / 60) * 60);
-    to = Math.max(to, Math.min(24 * 60, Math.ceil(endMins(e) / 60) * 60));
-  }
-  const pct = (m: number) => `${(Math.min(Math.max(m, from), to) - from) / (to - from) * 100}%`;
-  const ticks = [from];
-  for (let t = Math.ceil((from + 120) / 360) * 360; t <= to - 120; t += 360) ticks.push(t);
-  ticks.push(to);
-  return (
-    <div className="ribbon" aria-hidden="true">
-      <div className="ribbon-track">
-        {nowM !== undefined && <span className="ribbon-past" style={{ width: pct(nowM) }} />}
-        {evs.map((e) => (
-          <span
-            key={e.id}
-            className="ribbon-ev"
-            style={{ left: pct(mins(e.start!)), width: `max(6px, calc(${pct(endMins(e))} - ${pct(mins(e.start!))}))`, background: toneOf(h, e.owner).c }}
-          />
-        ))}
-        {nowM !== undefined && nowM >= from && nowM <= to && <span className="ribbon-now" style={{ left: pct(nowM) }} />}
-      </div>
-      <div className="ribbon-hours">
-        {ticks.map((t) => <span key={t} style={{ left: pct(t) }}>{t / 60} h</span>)}
-      </div>
+    <div className="task-row d-task">
+      <Check h={h} task={t} onToggle={() => toggleTask(h.id, t)} square />
+      <button className={t.done ? 'task-title done' : 'task-title'} onClick={() => onEdit(t)}>{amount ? amount.rest : t.title}</button>
+      {amount && <span className="d-amount">{chf(amount.value)}</span>}
+      {late ? (
+        <span className="chip" style={{ background: '#FFE3E7', color: '#A81D33' }}>En retard</span>
+      ) : showDue && t.due ? (
+        <span className="chip" style={{ background: '#FFF3CC', color: '#7A5500' }}>{shortDate(t.due)}</span>
+      ) : !showDue && t.time ? (
+        <span className="chip" style={{ background: toneOf(h, t.owner).s, color: toneOf(h, t.owner).t }}>{t.time}</span>
+      ) : null}
     </div>
   );
 }

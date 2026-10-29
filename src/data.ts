@@ -152,15 +152,19 @@ export const updateEvent = (hid: string, id: string, e: Partial<EventInput>) =>
 
 export const deleteEvent = (hid: string, id: string) => deleteDoc(doc(db, 'households', hid, 'events', id));
 
-/** Un événement qui se répète : une fiche par date, toutes reliées par seriesId. */
-export async function addEventSeries(hid: string, uid: string, e: EventInput, dates: string[]) {
+/**
+ * Un événement qui se répète : une fiche par date, toutes reliées par seriesId.
+ * Avec un seriesId existant, ajoute des dates à cette série (rallonger la fin).
+ */
+export async function addEventSeries(hid: string, uid: string, e: EventInput, dates: string[], seriesId?: string) {
   const events = collection(db, 'households', hid, 'events');
-  const seriesId = doc(events).id;
+  const sid = seriesId ?? doc(events).id;
   const batch = writeBatch(db);
   for (const date of dates) {
-    batch.set(doc(events), { ...e, date, seriesId, createdBy: uid, createdAt: serverTimestamp() });
+    batch.set(doc(events), { ...e, date, seriesId: sid, createdBy: uid, createdAt: serverTimestamp() });
   }
   await batch.commit();
+  return sid;
 }
 
 /** Même retouche sur toutes les dates d'une série. */
