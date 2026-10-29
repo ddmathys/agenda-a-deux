@@ -7,6 +7,7 @@ import { daysUntil } from '../vacation';
 interface Props {
   h: Household;
   events: EventItem[];
+  onBack: () => void;
   onAdd: () => void;
   onEditEvent: (e: EventItem) => void;
 }
@@ -22,7 +23,7 @@ function inDays(n: number): string {
  * Tous les anniversaires, du plus proche au plus lointain, regroupés par mois,
  * avec en tête le prochain en grand.
  */
-export function Birthdays({ h, events, onAdd, onEditEvent }: Props) {
+export function Birthdays({ h, events, onBack, onAdd, onEditEvent }: Props) {
   const today = todayKey();
   const list = events
     .filter((e) => e.birthday)
@@ -44,7 +45,7 @@ export function Birthdays({ h, events, onAdd, onEditEvent }: Props) {
     <div className="screen">
       <header className="page-head center">
         <div className="col gap2">
-          <span className="kicker" style={{ color: '#9A4300' }}>{list.length} à fêter</span>
+          <button className="back-link" onClick={onBack}>{Icon.left}Année</button>
           <h1>Anniversaires</h1>
         </div>
         <button className="sq-btn dark" aria-label="Ajouter un anniversaire" onClick={onAdd}>{Icon.plusSm}</button>

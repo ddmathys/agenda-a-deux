@@ -19,6 +19,7 @@ interface Props {
   onAdd: (date: string) => void;
   deadlines: Deadline[];
   onEditDeadline: (d: Deadline) => void;
+  onBirthdays: () => void;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -29,7 +30,7 @@ const LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
  * Chaque mois garde son calendrier (vacances en capsules de couleur, anniversaires
  * en rond jaune) et ses annotations : les vacances et les anniversaires du mois.
  */
-export function Year({ h, me, events, tasks, onEditEvent, onEditTask, onPick, onAdd, deadlines, onEditDeadline }: Props) {
+export function Year({ h, me, events, tasks, onEditEvent, onEditTask, onPick, onAdd, deadlines, onEditDeadline, onBirthdays }: Props) {
   const today = todayKey();
   const now = new Date();
   // Décalage en mois depuis le mois en cours (les flèches avancent de 12 mois).
@@ -106,6 +107,7 @@ export function Year({ h, me, events, tasks, onEditEvent, onEditTask, onPick, on
           ))}
           <span className="row gap4 center"><span className="wall-key round" />Anniversaire</span>
         </div>
+        <button className="d-btn soft ym-bdays" onClick={onBirthdays}><span aria-hidden="true">🎂</span> Tous les anniversaires{Icon.right}</button>
       </header>
 
       <div className="d-sec center">

@@ -8,7 +8,6 @@ import { Empty, Icon } from '../ui';
 interface Props {
   h: Household;
   items: Deadline[];
-  onBack: () => void;
   onAdd: () => void;
   onEdit: (d: Deadline) => void;
 }
@@ -19,7 +18,7 @@ const SOON = 45; // jours : ce qui arrive dans ce délai passe en tête
  * Abonnements, assurances, contrats, entretien et papiers du foyer :
  * ce qu'ils coûtent, quand ils se renouvellent et jusqu'à quand on peut résilier.
  */
-export function Deadlines({ h, items, onBack, onAdd, onEdit }: Props) {
+export function Deadlines({ h, items, onAdd, onEdit }: Props) {
   const today = todayKey();
   const [filter, setFilter] = useState<DeadlineKind | 'all'>('all');
   const sorted = [...items].sort((a, b) => keyDate(a, today).localeCompare(keyDate(b, today)));
@@ -32,7 +31,6 @@ export function Deadlines({ h, items, onBack, onAdd, onEdit }: Props) {
   return (
     <div className="screen dash">
       <header className="d-head">
-        <button className="back-link" onClick={onBack}>{Icon.left}Agenda</button>
         <span className="d-stamp">ÉCHÉANCES</span>
         <h1 className="d-hello">Abos <em>&amp;</em> contrats</h1>
         {perMonth > 0 && (

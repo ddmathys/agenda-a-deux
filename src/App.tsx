@@ -63,10 +63,10 @@ function Shell({ h, user }: { h: Household; user: User }) {
   return (
     <div className="app">
       {tab === 'today' && <Today h={h} me={me} events={events} tasks={tasks} deadlines={deadlines} onDeadlines={() => go('deadlines')} onEditDeadline={setDl} onAdd={(date) => setSheet({ kind: 'new', date })} onShare={() => setSharing(true)} forecast={forecast} onProfile={() => setProfile(true)} onCoco={(q) => setChat({ ask: q })} {...edit} />}
-      {tab === 'year' && <Year h={h} me={me} events={events} tasks={tasks} deadlines={deadlines} onEditDeadline={setDl} onPick={setPicked} onAdd={(date) => setSheet({ kind: 'new', date })} {...edit} />}
-      {tab === 'deadlines' && <Deadlines h={h} items={deadlines} onBack={() => go('today')} onAdd={() => setDl('new')} onEdit={setDl} />}
+      {tab === 'year' && <Year h={h} me={me} events={events} tasks={tasks} deadlines={deadlines} onEditDeadline={setDl} onBirthdays={() => go('birthdays')} onPick={setPicked} onAdd={(date) => setSheet({ kind: 'new', date })} {...edit} />}
+      {tab === 'deadlines' && <Deadlines h={h} items={deadlines} onAdd={() => setDl('new')} onEdit={setDl} />}
       {tab === 'birthdays' && (
-        <Birthdays h={h} events={events} onAdd={() => setSheet({ kind: 'new', preset: 'bday' })} onEditEvent={edit.onEditEvent} />
+        <Birthdays h={h} events={events} onBack={() => go('year')} onAdd={() => setSheet({ kind: 'new', preset: 'bday' })} onEditEvent={edit.onEditEvent} />
       )}
       {tab === 'vacations' && (
         <Vacations h={h} me={me} events={events} onBack={() => go('today')} onAdd={() => setSheet({ kind: 'new', preset: 'vac' })} onEditEvent={edit.onEditEvent} />
