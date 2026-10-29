@@ -14,6 +14,8 @@ interface Props {
   tasks: Task[];
   onEditEvent: (e: EventItem) => void;
   onEditTask: (t: Task) => void;
+  onPick: (day: string | null) => void;
+  onAdd: (date: string) => void;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -22,7 +24,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
  * Le mural de l'année : douze petits calendriers, les vacances et les anniversaires
  * en couleur, puis le compteur de vacances et les listes.
  */
-export function Year({ h, me, events, tasks, onEditEvent, onEditTask }: Props) {
+export function Year({ h, me, events, tasks, onEditEvent, onEditTask, onPick, onAdd }: Props) {
   const today = todayKey();
   const [year, setYear] = useState(() => new Date().getFullYear());
   // Mois ouvert en détail (null = le mural de l'année).
@@ -75,10 +77,12 @@ export function Year({ h, me, events, tasks, onEditEvent, onEditTask }: Props) {
         tasks={tasks}
         year={year}
         month={open}
-        onBack={() => setOpen(null)}
+        onBack={() => { onPick(null); setOpen(null); }}
         onMonth={(y, m) => { setYear(y); setOpen(m); }}
         onEditEvent={onEditEvent}
         onEditTask={onEditTask}
+        onPick={onPick}
+        onAdd={onAdd}
       />
     );
   }

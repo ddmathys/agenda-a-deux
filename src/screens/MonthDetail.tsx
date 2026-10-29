@@ -16,6 +16,8 @@ interface Props {
   onMonth: (year: number, month: number) => void;
   onEditEvent: (e: EventItem) => void;
   onEditTask: (t: Task) => void;
+  onPick: (day: string | null) => void;
+  onAdd: (date: string) => void;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -25,9 +27,14 @@ const LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
  * Le détail d'un mois du mural : grand calendrier, puis vacances, anniversaires,
  * rendez-vous et tâches du mois. Toucher un jour ne montre que ce jour-là.
  */
-export function MonthDetail({ h, events, tasks, year, month, onBack, onMonth, onEditEvent, onEditTask }: Props) {
+export function MonthDetail({ h, events, tasks, year, month, onBack, onMonth, onEditEvent, onEditTask, onPick, onAdd }: Props) {
   const today = todayKey();
-  const [day, setDay] = useState<string | null>(null);
+  const [day, setDayState] = useState<string | null>(null);
+  // Le jour choisi sert aussi de date au + du bas.
+  const setDay = (k: string | null) => {
+    setDayState(k);
+    onPick(k);
+  };
   const prefix = `${year}-${pad(month + 1)}`;
   const len = new Date(year, month + 1, 0).getDate();
   const blanks = (new Date(year, month, 1).getDay() + 6) % 7;
@@ -92,9 +99,12 @@ export function MonthDetail({ h, events, tasks, year, month, onBack, onMonth, on
       </div>
 
       {day && (
-        <button className="vac-line" onClick={() => setDay(null)}>
-          {cap(DAYS[fromKey(day).getDay()])} {shortDate(day)} · voir tout le mois
-        </button>
+        <div className="row gap8">
+          <button className="vac-line grow" onClick={() => setDay(null)}>
+            {cap(DAYS[fromKey(day).getDay()])} {shortDate(day)} · voir tout le mois
+          </button>
+          <button className="d-btn primary" onClick={() => onAdd(day)}>{Icon.plusSm}Ajouter</button>
+        </div>
       )}
 
       {shownStays.length > 0 && (

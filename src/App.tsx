@@ -3,7 +3,6 @@ import type { User } from 'firebase/auth';
 import { useAuth, useEvents, useHousehold, useTasks } from './data';
 import { AddSheet, type SheetMode } from './screens/AddSheet';
 import { Today } from './screens/Today';
-import { Upcoming } from './screens/Upcoming';
 import { Year } from './screens/Year';
 import { Birthdays } from './screens/Birthdays';
 import { Vacations } from './screens/Vacations';
@@ -32,7 +31,8 @@ function Shell({ h, user }: { h: Household; user: User }) {
   const [tab, setTab] = useState<Tab>('today');
   const [sheet, setSheet] = useState<SheetMode | null>(null);
   const [sharing, setSharing] = useState(false);
-  const [upDay, setUpDay] = useState<string | undefined>(undefined);
+  // Le jour touché dans le mural : le + du bas le reprend comme date.
+  const [picked, setPicked] = useState<string | null>(null);
   const [chat, setChat] = useState<{ ask?: string } | null>(null);
   const [profile, setProfile] = useState(false);
   const hello = useHello();
@@ -49,24 +49,23 @@ function Shell({ h, user }: { h: Household; user: User }) {
     onEditEvent: (ev: EventItem) => setSheet({ kind: 'event', ev }),
   };
 
-  const go = (t: Tab, day?: string) => {
-    setUpDay(day);
+  const go = (t: Tab) => {
+    setPicked(null);
     setTab(t);
     scrollToTop();
   };
 
   return (
     <div className="app">
-      {tab === 'today' && <Today h={h} me={me} events={events} tasks={tasks} onTab={go} onAdd={(date) => setSheet({ kind: 'new', date })} onShare={() => setSharing(true)} forecast={forecast} onProfile={() => setProfile(true)} onCoco={(q) => setChat({ ask: q })} {...edit} />}
-      {tab === 'upcoming' && <Upcoming key={upDay ?? 'today'} h={h} events={events} tasks={tasks} day={upDay} forecast={forecast} onAdd={(date) => setSheet({ kind: 'new', date })} onCoco={(q) => setChat({ ask: q })} {...edit} />}
-      {tab === 'year' && <Year h={h} me={me} events={events} tasks={tasks} {...edit} />}
+      {tab === 'today' && <Today h={h} me={me} events={events} tasks={tasks} onAdd={(date) => setSheet({ kind: 'new', date })} onShare={() => setSharing(true)} forecast={forecast} onProfile={() => setProfile(true)} onCoco={(q) => setChat({ ask: q })} {...edit} />}
+      {tab === 'year' && <Year h={h} me={me} events={events} tasks={tasks} onPick={setPicked} onAdd={(date) => setSheet({ kind: 'new', date })} {...edit} />}
       {tab === 'birthdays' && (
-        <Birthdays h={h} events={events} onBack={() => go('today')} onAdd={() => setSheet({ kind: 'new', preset: 'bday' })} onEditEvent={edit.onEditEvent} />
+        <Birthdays h={h} events={events} onAdd={() => setSheet({ kind: 'new', preset: 'bday' })} onEditEvent={edit.onEditEvent} />
       )}
       {tab === 'vacations' && (
         <Vacations h={h} me={me} events={events} onBack={() => go('today')} onAdd={() => setSheet({ kind: 'new', preset: 'vac' })} onEditEvent={edit.onEditEvent} />
       )}
-      <Nav tab={tab} onTab={(t) => go(t)} onAdd={() => setSheet({ kind: 'new' })} onChat={() => setChat({})} />
+      <Nav tab={tab} onTab={(t) => go(t)} onAdd={() => setSheet(picked ? { kind: 'new', date: picked } : { kind: 'new' })} onChat={() => setChat({})} />
       {profile && <ProfileSheet h={h} me={me} forecast={forecast} onShare={() => { setProfile(false); setSharing(true); }} onClose={() => setProfile(false)} />}
       {hello.on && !chat && !sheet && (
         <CocoHello h={h} me={me} events={events} tasks={tasks} forecast={forecast} onClose={hello.close} onChat={() => { hello.close(); setChat({}); }} />

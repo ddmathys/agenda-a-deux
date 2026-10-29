@@ -4,7 +4,7 @@ import { ageOn, eventsOn, stayOn } from '../birthday';
 import { addTask, toggleTask } from '../data';
 import { ownerChoices, partnerUid, toneOf } from '../tones';
 import type { EventItem, Household, Task } from '../types';
-import { Avatar, BirthdayMark, Check, Icon, RepeatMark, VacationMark, type Tab } from '../ui';
+import { Avatar, Check, Icon, RepeatMark } from '../ui';
 import { wmo, type Forecast } from '../weather';
 
 const LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -54,12 +54,40 @@ const chf = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(2)} CHF`;
 
 const byStart = (a: EventItem, b: EventItem) => (a.start ?? '').localeCompare(b.start ?? '');
 
+/** Une petite icône selon ce que c'est, devinée d'après le titre. */
+const KINDS: [RegExp, string][] = [
+  [/m[ée]decin|docteur|dr\.? |p[ée]diatre|h[ôo]pital|vaccin|kin[ée]|physio|ost[ée]o|gyn[ée]co|ophtalmo|pharmacie/i, '🩺'],
+  [/dentiste|orthodont/i, '🦷'],
+  [/coiff|barbier/i, '✂️'],
+  [/resto|restaurant|d[îi]ner|d[ée]jeuner|brunch|souper|repas|pizza|sushi/i, '🍽️'],
+  [/ap[ée]ro|bar\b|verre|bi[èe]re|vin\b/i, '🍷'],
+  [/\bcaf[ée]/i, '☕'],
+  [/courses|migros|coop|lidl|aldi|denner|march[ée]/i, '🛒'],
+  [/foot|tennis|padel|gym|fitness|sport|course|running|jogging|v[ée]lo|yoga|piscine|natation|ski|rando|match|entra[îi]nement|muscu/i, '🏃'],
+  [/cin[ée]|film/i, '🎬'],
+  [/concert|festival|spectacle|th[ée][âa]tre|op[ée]ra/i, '🎵'],
+  [/vol\b|avion|a[ée]roport|train|gare|voyage|week-end|weekend/i, '✈️'],
+  [/r[ée]union|meeting|call|travail|boulot|bureau|client|rdv pro|entretien|s[ée]minaire|formation|cours\b|examen/i, '💼'],
+  [/[ée]cole|cr[èe]che|garderie|maman de jour/i, '🎒'],
+  [/garage|voiture|pneus|expertise|contr[ôo]le technique/i, '🚗'],
+  [/f[êe]te|soir[ée]e|party|mariage|bapt[êe]me/i, '🎉'],
+  [/anniv/i, '🎂'],
+  [/v[ée]to|chien|chat\b/i, '🐾'],
+  [/m[ée]nage|lessive|rangement|d[ée]m[ée]nagement|bricolage|jardin/i, '🧹'],
+  [/banque|imp[ôo]ts|assurance|notaire|admin|papiers|factures?/i, '📄'],
+  [/maman|papa|famille|grands?-parents|mamie|papi|parents|beaux-parents/i, '👨‍👩‍👧'],
+];
+function iconOf(e: EventItem) {
+  if (e.birthday) return '🎂';
+  if (e.vacation) return '🏖️';
+  return KINDS.find(([re]) => re.test(e.title))?.[1] ?? '📌';
+}
+
 interface Props {
   h: Household;
   me: string;
   events: EventItem[];
   tasks: Task[];
-  onTab: (t: Tab, day?: string) => void;
   onAdd: (date: string) => void;
   onShare: () => void;
   forecast: Forecast | null;
@@ -69,7 +97,7 @@ interface Props {
   onEditEvent: (e: EventItem) => void;
 }
 
-export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, onProfile, onCoco, onEditTask, onEditEvent }: Props) {
+export function Today({ h, me, events, tasks, onAdd, onShare, forecast, onProfile, onCoco, onEditTask, onEditEvent }: Props) {
   const [filter, setFilter] = useState<string>('all');
   const [draft, setDraft] = useState('');
   const now = useNow();
@@ -82,20 +110,35 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
   const evOn = (k: string) => eventsOn(events, k).filter((e) => keep(e.owner)).sort(byStart);
   const visible = (t: Task) => keep(t.owner) && (!t.done || t.doneOn === today);
 
-  // La semaine en cours, du lundi au dimanche.
-  const week = Array.from({ length: 7 }, (_, i) => keyOf(addDays(mondayOf(now), i)));
+  // La semaine affichée : 0 = celle-ci, 1 = la suivante… (on défile avec les flèches).
+  const [wk, setWk] = useState(0);
+  const monday = addDays(mondayOf(now), wk * 7);
+  const week = Array.from({ length: 7 }, (_, i) => keyOf(addDays(monday, i)));
   const weekCount = week.reduce((n, k) => n + evOn(k).filter((e) => !e.birthday).length, 0);
+  const weekTitle = wk === 0 ? 'Cette semaine' : wk === 1 ? 'Semaine prochaine' : `Semaine du ${shortDate(week[0])}`;
+  const tomorrow = keyOf(addDays(now, 1));
 
-  // L'agenda : aujourd'hui, demain, puis chaque jour jusqu'au dimanche (le dimanche : aussi lundi).
+  // Cette semaine : aujourd'hui, demain, puis chaque jour jusqu'au dimanche (le dimanche : aussi lundi).
   const toSunday = (7 - now.getDay()) % 7;
-  const days = Array.from({ length: Math.max(2, toSunday + 1) }, (_, i) => keyOf(addDays(now, i)));
-  const lastDay = days[days.length - 1];
+  const days0 = Array.from({ length: Math.max(2, toSunday + 1) }, (_, i) => keyOf(addDays(now, i)));
+  // Les semaines suivantes : du lundi au dimanche.
+  const days = wk === 0 ? days0 : week;
+  const lastDay = days0[days0.length - 1];
 
   const taskOrder = (a: Task, b: Task) =>
     Number(a.done) - Number(b.done) || (a.due ?? '9999').localeCompare(b.due ?? '9999') || (a.time ?? '99').localeCompare(b.time ?? '99');
   // Aujourd'hui reçoit aussi les tâches en retard ; « À faire » garde celles sans date ou plus tard.
   const tasksOn = (k: string) => tasks.filter((t) => visible(t) && !!t.due && (k === today ? t.due <= today : t.due === k)).sort(taskOrder);
-  const tkOther = tasks.filter((t) => visible(t) && (!t.due || t.due > lastDay)).sort(taskOrder);
+  const tkOther = tasks.filter((t) => visible(t) && (!t.due || (t.due > lastDay && !days.includes(t.due)))).sort(taskOrder);
+
+  const goWeek = (n: number) => {
+    setWk(Math.max(0, wk + n));
+    document.getElementById('d-weeksec')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const goDay = (k: string) => {
+    if (!days.includes(k)) setWk(Math.round((mondayOf(fromKey(k)).getTime() - mondayOf(now).getTime()) / (7 * 86400000)));
+    setTimeout(() => document.getElementById(`day-${k}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  };
   const openCount = tkOther.filter((t) => !t.done).length;
   const due = tkOther.reduce((s, t) => s + (!t.done ? amountOf(t.title)?.value ?? 0 : 0), 0);
 
@@ -112,11 +155,11 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
   const wNight = forecast?.[keyOf(addDays(now, 1))];
 
   // Pour le point de Coco : le premier jour sans rendez-vous d'ici dimanche.
-  const freeDay = days.slice(1).find((k) => evOn(k).every((e) => e.birthday));
+  const freeDay = days0.slice(1).find((k) => evOn(k).every((e) => e.birthday));
 
   // Le point de Coco se ferme d'un « C'est noté » : il revient le lendemain ou si l'agenda change.
   const pointKey = `coco-point-${me}`;
-  const pointSig = `${today}|${days.map((k) => eventsOn(events, k).map((e) => `${e.id}${e.start ?? ''}`).join(',')).join('|')}`;
+  const pointSig = `${today}|${days0.map((k) => eventsOn(events, k).map((e) => `${e.id}${e.start ?? ''}`).join(',')).join('|')}`;
   const [seen, setSeen] = useState(() => {
     try {
       return localStorage.getItem(pointKey) ?? '';
@@ -170,11 +213,11 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
           <button className="d-coco-ok" onClick={closePoint}>{Icon.check}C’est noté</button>
         </div>
         <p className="d-coco-text">
-          <CocoPoint h={h} me={me} days={days} evOn={evOn} nowHM={hm(now)} evening={evening} freeDay={freeDay} />
+          <CocoPoint h={h} me={me} days={days0} evOn={evOn} nowHM={hm(now)} evening={evening} freeDay={freeDay} />
         </p>
         <div className="row gap8 wrap">
           <button className="d-btn primary" onClick={() => onCoco(`Trouve-moi une activité pour ${freeDay ? dayDate(freeDay) : 'ce week-end'}`)}>
-            Idées pour {freeDay ? (freeDay === days[1] ? 'demain' : DAYS[fromKey(freeDay).getDay()]) : 'le week-end'}
+            Idées pour {freeDay ? (freeDay === days0[1] ? 'demain' : DAYS[fromKey(freeDay).getDay()]) : 'le week-end'}
           </button>
           <button className="d-btn" onClick={() => onCoco('Fais-moi le résumé de notre semaine')}>Résumé de la semaine</button>
         </div>
@@ -193,17 +236,21 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
         })}
       </div>
 
-      <section className="col gap12">
-        <div className="d-sec">
-          <h2>Cette semaine</h2>
-          <span className="d-mono">{weekCount} rendez-vous</span>
+      <section className="col gap12 d-weeksec" id="d-weeksec">
+        <div className="d-sec center">
+          <div className="col gap2 grow min0">
+            <h2>{weekTitle}</h2>
+            <span className="d-mono">{weekCount} rendez-vous</span>
+          </div>
+          <button className="sq-btn" aria-label="Semaine précédente" onClick={() => goWeek(-1)} disabled={wk === 0}>{Icon.left}</button>
+          <button className="sq-btn dark" aria-label="Semaine suivante" onClick={() => goWeek(1)}>{Icon.right}</button>
         </div>
         <div className="d-week">
           {week.map((k, i) => {
             const owners = [...new Set(evOn(k).map((e) => e.owner))].slice(0, 3);
             const cls = k === today ? 'd-wday today' : k < today ? 'd-wday past' : 'd-wday';
             return (
-              <button key={k} className={cls} onClick={() => onTab('upcoming', k)} aria-label={`${dayDate(k)} : ${owners.length ? 'voir les rendez-vous' : 'rien de prévu'}`}>
+              <button key={k} className={cls} onClick={() => goDay(k)} aria-label={`${dayDate(k)} : ${owners.length ? 'voir les rendez-vous' : 'rien de prévu'}`}>
                 <span className="d-wlabel">{LETTERS[i]}</span>
                 <span className="d-wnum">{fromKey(k).getDate()}</span>
                 <span className="d-dots">
@@ -216,25 +263,31 @@ export function Today({ h, me, events, tasks, onTab, onAdd, onShare, forecast, o
       </section>
 
       <section className="col gap18">
-        {days.map((k, i) => (
+        {days.map((k) => (
           <DayBlock
             key={k}
             h={h}
             k={k}
-            kicker={i === 0 ? 'AUJ.' : i === 1 ? 'DEMAIN' : DAYS[fromKey(k).getDay()].slice(0, 3).toUpperCase()}
-            title={i === 0 ? (evening ? 'Ce soir' : 'Aujourd’hui') : i === 1 ? 'Demain' : cap(DAYS[fromKey(k).getDay()])}
-            isToday={i === 0}
+            kicker={k === today ? 'AUJ.' : k === tomorrow ? 'DEMAIN' : DAYS[fromKey(k).getDay()].slice(0, 3).toUpperCase()}
+            title={k === today ? (evening ? 'Ce soir' : 'Aujourd’hui') : k === tomorrow ? 'Demain' : wk === 0 ? cap(DAYS[fromKey(k).getDay()]) : cap(dayDate(k))}
+            isToday={k === today}
             evs={evOn(k)}
             tks={tasksOn(k)}
             today={today}
-            nowM={i === 0 ? nowM : undefined}
+            nowM={k === today ? nowM : undefined}
             weather={forecast?.[k]}
             onAdd={() => onAdd(k)}
-            onCoco={() => onCoco(`Trouve-moi une activité pour ${i === 0 ? 'aujourd’hui' : i === 1 ? 'demain' : dayDate(k)}`)}
+            onCoco={() => onCoco(`Trouve-moi une activité pour ${k === today ? 'aujourd’hui' : k === tomorrow ? 'demain' : dayDate(k)}`)}
             onEditEvent={onEditEvent}
             onEditTask={onEditTask}
           />
         ))}
+        <div className="row gap8 wrap">
+          {wk > 0 && <button className="d-btn" onClick={() => goWeek(-wk)}>{Icon.left}Cette semaine</button>}
+          <button className="d-btn grow d-next" onClick={() => goWeek(1)}>
+            {wk === 0 ? 'Semaine prochaine' : `Semaine du ${shortDate(keyOf(addDays(monday, 7)))}`}{Icon.right}
+          </button>
+        </div>
       </section>
 
       <section className="col gap12">
@@ -303,7 +356,7 @@ export function DayBlock({ h, k, kicker, title, isToday, evs, tks, today, nowM, 
   const free = k >= today && evs.every((e) => e.birthday) && !tks.some((t) => !t.done);
 
   return (
-    <section className={isToday ? 'd-day today' : 'd-day'} aria-label={`${title}, ${dayDate(k)}`}>
+    <section id={`day-${k}`} className={isToday ? 'd-day today' : 'd-day'} aria-label={`${title}, ${dayDate(k)}`}>
       <div className="d-date">
         <span className="d-kicker">{kicker}</span>
         <span className="d-num">{fromKey(k).getDate()}</span>
@@ -330,11 +383,10 @@ export function DayBlock({ h, k, kicker, title, isToday, evs, tks, today, nowM, 
               return (
                 <button key={e.id} className={`d-row ${st}`} onClick={() => onEditEvent(e)}>
                   <span className="d-bar" style={{ background: t.c }} />
+                  <span className="d-ico" style={{ background: t.s }} aria-hidden="true">{iconOf(e)}</span>
                   <span className="col grow min0 gap2">
                     <span className="d-title row gap6 center">
                       <span className="ell">{e.title}</span>
-                      {e.birthday && <BirthdayMark />}
-                      {e.vacation && <VacationMark />}
                     </span>
                     <span className="d-meta">{meta}</span>
                   </span>

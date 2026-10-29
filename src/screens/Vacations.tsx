@@ -53,7 +53,7 @@ export function Vacations({ h, me, events, onBack, onAdd, onEditEvent }: Props) 
     <div className="screen">
       <header className="page-head center">
         <div className="col gap2">
-          <button className="back-link" onClick={onBack}>{Icon.left}Aujourd’hui</button>
+          <button className="back-link" onClick={onBack}>{Icon.left}Agenda</button>
           <h1>Vacances</h1>
         </div>
         <button className="sq-btn dark" aria-label="Ajouter des vacances" onClick={onAdd}>{Icon.plusSm}</button>

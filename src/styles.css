@@ -975,6 +975,13 @@ p.plan-empty { margin: 0; min-height: 0; padding-top: 10px; padding-bottom: 2px;
 .d-row.past { opacity: 0.45; }
 .d-row.now { background: #FFF3EC; }
 .d-bar { width: 4px; align-self: stretch; flex-shrink: 0; border-radius: 4px; }
+.d-ico { width: 34px; height: 34px; flex-shrink: 0; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 17px; line-height: 1; }
+.d-sec .sq-btn { flex-shrink: 0; }
+.d-sec .sq-btn:disabled { opacity: 0.35; }
+.d-weeksec { scroll-margin-top: 12px; }
+.d-day { scroll-margin-top: 12px; }
+.d-next { justify-content: center; }
+.d-btn svg { width: 16px; height: 16px; }
 .d-title { font-size: 15px; font-weight: 700; }
 .d-meta { font-size: 13px; font-weight: 600; color: var(--muted); overflow-wrap: anywhere; }
 .d-card .d-task { padding: 0 14px 0 6px; }
