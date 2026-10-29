@@ -105,6 +105,14 @@ export interface Deadline {
   notice: number; // préavis en mois (0 = aucun)
   owner: Owner;
   note: string;
+  comments?: DeadlineComment[];
+}
+
+/** Un commentaire laissé sur une échéance (« appelé Zurich, offre à 820.- »…). */
+export interface DeadlineComment {
+  by: string; // uid
+  at: string; // ISO
+  text: string;
 }
 
 export const DEFAULT_LISTS: ListDef[] = [

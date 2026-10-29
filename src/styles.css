@@ -1000,6 +1000,33 @@ p.plan-empty { margin: 0; min-height: 0; padding-top: 10px; padding-bottom: 2px;
 .d-free.plain { width: 100%; background: transparent; text-align: left; cursor: pointer; }
 .d-free.plain .d-btn { flex-shrink: 0; }
 
+.dl-cats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.dl-cat { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px; min-height: 128px; border: none; border-radius: 20px; text-align: left; color: var(--ink); box-shadow: 0 6px 18px rgba(155, 123, 255, 0.1); }
+.dl-cat-ico { font-size: 24px; line-height: 1; margin-bottom: 4px; }
+.dl-cat-name { font-family: var(--serif); font-size: 18px; font-weight: 600; }
+.dl-cat-n { font-family: var(--mono); font-size: 11px; color: var(--muted2); }
+.dl-cat-next { font-size: 12px; font-weight: 600; color: var(--muted2); overflow-wrap: anywhere; }
+.dl-big-ico { width: 52px; height: 52px; flex-shrink: 0; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+.dl-title { font-size: 32px; min-width: 0; }
+.dl-hero { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-radius: 20px; background: var(--white); box-shadow: var(--shadow); border: 1px solid var(--line); }
+.dl-hero.hot { background: #FFF3EC; border-color: #FFD9C7; }
+.dl-hero.late { background: #FFE9EE; border-color: #FFC9D3; }
+.dl-hero-when { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--coral-ink); }
+.dl-hero.late .dl-hero-when { color: #A81D33; }
+.dl-hero-what { font-family: var(--serif); font-size: 22px; line-height: 1.2; }
+.dl-hero-sub { font-size: 13.5px; font-weight: 600; color: var(--muted2); }
+.dl-fact { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 16px; }
+.dl-fact-l { font-size: 13px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+.dl-fact-v { font-size: 14.5px; font-weight: 700; text-align: right; overflow-wrap: anywhere; min-width: 0; }
+.dl-comment-form { display: flex; flex-direction: column; gap: 8px; }
+.dl-comment-form textarea { width: 100%; min-height: 64px; padding: 12px 14px; border-radius: 16px; border: 1.5px solid var(--line); background: var(--white); font: inherit; font-size: 15px; color: var(--ink); resize: vertical; }
+.dl-comment-form .d-btn { align-self: flex-end; }
+.dl-comment { display: flex; gap: 10px; align-items: flex-start; padding: 12px 10px 12px 14px; }
+.dl-comment-meta { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.dl-comment-text { margin: 0; font-size: 14.5px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dl-comment-x { width: 36px; height: 36px; flex-shrink: 0; border: none; background: none; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+.dl-comment-x svg { width: 14px; height: 14px; }
+
 /* Mural : un mois = un bloc comme un jour de l'agenda */
 .ym-num { font-size: 22px; }
 .ym-cal { width: 100%; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 4px; padding: 12px 10px 10px; border: none; background: transparent; color: var(--ink); cursor: pointer; }

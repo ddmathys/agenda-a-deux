@@ -305,7 +305,7 @@ export function Today({ h, me, events, tasks, deadlines, onDeadlines, onEditDead
             .filter((d) => daysTo(keyDate(d, today), today) <= 30)
             .sort((a, b) => keyDate(a, today).localeCompare(keyDate(b, today)))
             .slice(0, 3);
-          if (soon.length) return <div className="d-card">{soon.map((d) => <DeadlineRow key={d.id} h={h} d={d} today={today} onEdit={onEditDeadline} />)}</div>;
+          if (soon.length) return <div className="d-card">{soon.map((d) => <DeadlineRow key={d.id} h={h} d={d} today={today} onOpen={onEditDeadline} />)}</div>;
           return (
             <button className="d-free plain" onClick={onDeadlines}>
               <span>{deadlines.length ? 'Rien à résilier ni à renouveler ce mois-ci.' : 'Abonnements, assurances, contrats : note-les pour ne plus rater une résiliation.'}</span>

@@ -4,11 +4,11 @@ import {
   signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, updateProfile, type User,
 } from 'firebase/auth';
 import {
-  addDoc, arrayUnion, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch,
+  addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { todayKey } from './dates';
-import { DEFAULT_LISTS, type Deadline, type EventItem, type Home, type Household, type Ideas, type Task } from './types';
+import { DEFAULT_LISTS, type Deadline, type DeadlineComment, type EventItem, type Home, type Household, type Ideas, type Task } from './types';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
@@ -111,6 +111,12 @@ export const updateDeadline = (hid: string, id: string, d: Partial<DeadlineInput
   updateDoc(doc(db, 'households', hid, 'deadlines', id), d);
 
 export const deleteDeadline = (hid: string, id: string) => deleteDoc(doc(db, 'households', hid, 'deadlines', id));
+
+export const addDeadlineComment = (hid: string, id: string, c: DeadlineComment) =>
+  updateDoc(doc(db, 'households', hid, 'deadlines', id), { comments: arrayUnion(c) });
+
+export const deleteDeadlineComment = (hid: string, id: string, c: DeadlineComment) =>
+  updateDoc(doc(db, 'households', hid, 'deadlines', id), { comments: arrayRemove(c) });
 
 // --- Foyer ---
 

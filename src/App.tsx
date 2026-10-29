@@ -44,6 +44,13 @@ function Shell({ h, user }: { h: Household; user: User }) {
   const deadlines = useDeadlines(h.id);
   // Échéance ouverte : null = fermé, 'new' = nouvelle.
   const [dl, setDl] = useState<Deadline | 'new' | null>(null);
+  // Échéance affichée en détail dans l'onglet Échéances.
+  const [dlDetail, setDlDetail] = useState<string | null>(null);
+  const openDeadline = (d: Deadline) => {
+    setDlDetail(d.id);
+    setTab('deadlines');
+    scrollToTop();
+  };
   const me = user.uid;
 
   // Déjà dans un agenda : un lien d'invitation ouvert plus tard ne sert plus.
@@ -56,15 +63,16 @@ function Shell({ h, user }: { h: Household; user: User }) {
 
   const go = (t: Tab) => {
     setPicked(null);
+    setDlDetail(null);
     setTab(t);
     scrollToTop();
   };
 
   return (
     <div className="app">
-      {tab === 'today' && <Today h={h} me={me} events={events} tasks={tasks} deadlines={deadlines} onDeadlines={() => go('deadlines')} onEditDeadline={setDl} onAdd={(date) => setSheet({ kind: 'new', date })} onShare={() => setSharing(true)} forecast={forecast} onProfile={() => setProfile(true)} onCoco={(q) => setChat({ ask: q })} {...edit} />}
-      {tab === 'year' && <Year h={h} me={me} events={events} tasks={tasks} deadlines={deadlines} onEditDeadline={setDl} onBirthdays={() => go('birthdays')} onPick={setPicked} onAdd={(date) => setSheet({ kind: 'new', date })} {...edit} />}
-      {tab === 'deadlines' && <Deadlines h={h} items={deadlines} onAdd={() => setDl('new')} onEdit={setDl} />}
+      {tab === 'today' && <Today h={h} me={me} events={events} tasks={tasks} deadlines={deadlines} onDeadlines={() => go('deadlines')} onEditDeadline={openDeadline} onAdd={(date) => setSheet({ kind: 'new', date })} onShare={() => setSharing(true)} forecast={forecast} onProfile={() => setProfile(true)} onCoco={(q) => setChat({ ask: q })} {...edit} />}
+      {tab === 'year' && <Year h={h} me={me} events={events} tasks={tasks} deadlines={deadlines} onEditDeadline={openDeadline} onBirthdays={() => go('birthdays')} onPick={setPicked} onAdd={(date) => setSheet({ kind: 'new', date })} {...edit} />}
+      {tab === 'deadlines' && <Deadlines h={h} me={me} items={deadlines} detail={dlDetail} onDetail={setDlDetail} onAdd={() => setDl('new')} onEdit={setDl} />}
       {tab === 'birthdays' && (
         <Birthdays h={h} events={events} onBack={() => go('year')} onAdd={() => setSheet({ kind: 'new', preset: 'bday' })} onEditEvent={edit.onEditEvent} />
       )}
