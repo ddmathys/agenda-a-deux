@@ -1,22 +1,25 @@
 import { useState } from 'react';
-import { appLink, inviteLink, shareText } from '../invite';
+import { apkLink, appLink, inviteLink, shareText } from '../invite';
 import { partnerUid } from '../tones';
 import type { Household } from '../types';
 import { Icon } from '../ui';
 
 /**
  * Feuille « Partager » : inviter sa moitié dans CET agenda (tant qu'il reste une place),
- * ou envoyer l'app à d'autres, qui créeront leur propre agenda.
+ * envoyer l'APK Android (toujours la dernière version), ou envoyer l'app à d'autres,
+ * qui créeront leur propre agenda.
  */
 export function ShareSheet({ h, me, onClose }: { h: Household; me: string; onClose: () => void }) {
   const [note, setNote] = useState('');
   const partner = partnerUid(h, me);
   const name = h.people[me]?.name ?? '';
 
-  const send = async (kind: 'invite' | 'app') => {
+  const send = async (kind: 'invite' | 'app' | 'apk') => {
     setNote('');
     const res = kind === 'invite'
       ? await shareText('Agenda à deux', `${name} t’invite dans votre agenda à deux. Ouvre ce lien et connecte-toi :`, inviteLink(h.id))
+      : kind === 'apk'
+      ? await shareText('Agenda à deux pour Android', 'L’app Agenda à deux pour Android : ouvre ce lien sur ton téléphone, installe le fichier, puis connecte-toi avec Google.', apkLink())
       : await shareText('Agenda à deux', 'Je te fais découvrir Agenda à deux : un agenda et des listes à partager à deux, synchronisés sur vos deux téléphones.', appLink());
     if (res === 'copied') setNote('Lien copié : colle-le dans un message.');
   };
@@ -48,6 +51,17 @@ export function ShareSheet({ h, me, onClose }: { h: Household; me: string; onClo
             <span className="share-code">Code : <b>{h.id}</b></span>
           </div>
         )}
+
+        <div className="share-card android">
+          <span className="share-emoji" aria-hidden="true">📲</span>
+          <span className="share-title">L’app Android</span>
+          <span className="share-sub">Le lien télécharge toujours la dernière version. Sur le téléphone : ouvrir le fichier, autoriser l’installation, se connecter avec Google.</span>
+          <div className="row gap8">
+            <button className="btn-dark sm grow" onClick={() => send('apk')}>{Icon.share}Envoyer l’app</button>
+            <button className="share-copy" onClick={() => copy(apkLink())}>Copier</button>
+          </div>
+          <a className="share-code" href={apkLink()} download>Télécharger ici</a>
+        </div>
 
         <div className="share-card discover">
           <span className="share-emoji" aria-hidden="true">✨</span>

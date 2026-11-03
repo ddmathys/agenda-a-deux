@@ -1,13 +1,14 @@
 {
   "name": "agenda-a-deux",
   "private": true,
-  "version": "1.21.0",
+  "version": "1.22.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && firebase deploy"
+    "deploy": "npm run build && firebase deploy",
+    "apk": "node scripts/apk.mjs"
   },
   "dependencies": {
     "firebase": "^12.19.0",

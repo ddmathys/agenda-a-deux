@@ -10,6 +10,8 @@ const KEY = 'invite-code';
 const PARAM = 'rejoindre';
 
 export const appLink = () => location.origin;
+/** L'APK Android, toujours la dernière version déposée par `npm run apk`. */
+export const apkLink = () => `${location.origin}/agenda-a-deux.apk`;
 export const inviteLink = (code: string) => `${location.origin}/?${PARAM}=${code}`;
 
 /** À appeler au démarrage : range le code du lien et nettoie l'adresse. */
