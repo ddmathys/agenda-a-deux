@@ -89,14 +89,28 @@ jobs:
               1. Lis REGLES.md (et CLAUDE.md / AGENTS.md s'ils existent) et les skills .claude/skills/agenda-ux, agenda-tech, agenda-non-regression.
               2. Lis la demande (gh issue view <issue> --comments si une issue existe) puis la PR (gh pr view, gh pr diff).
               3. Vérifie : la demande est-elle faite, et rien de plus ? Les règles et les skills sont-ils respectés ? Un test manque-t-il ? Quel est le risque (Faible / Moyen / Élevé selon agenda-non-regression) ?
-              4. Poste UN seul commentaire en français sur la PR avec gh pr comment ${{ steps.pr.outputs.number }} --body-file <fichier>. Format :
+              4. Ta réponse finale (ta sortie texte) EST le commentaire qui sera publié tel quel sur la PR, en français. Format :
                  « ## Verdict : ✅ prêt à merger » ou « ## Verdict : ⚠️ à revoir », puis Risque, Ce que j'ai vérifié (liste courte), Problèmes (avec fichier:ligne). Si tu n'as pas pu voir le rendu visuel, dis-le.
-              5. Écris le fichier verdict.txt à la racine contenant exactement APPROVE ou CHANGES.
+              5. Termine par une dernière ligne seule : VERDICT: APPROVE ou VERDICT: CHANGES.
                  APPROVE uniquement si : vérifications = success, demande respectée sans ajout, risque Faible ou Moyen, zone sensible = false.
-              Ne modifie aucun fichier du dépôt, ne pousse rien.
+              N'utilise que des lectures (Read, Grep, Glob, gh pr view/diff, gh issue view, git log/diff/show). Ne publie rien toi-même, ne crée aucun fichier, ne modifie rien, ne pousse rien.
         run: |
           npm install -g @anthropic-ai/claude-code >/dev/null 2>&1
-          claude -p "$PROMPT" --max-turns 30 --allowedTools "Read,Grep,Glob,Write,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(git log:*),Bash(git diff:*)" --output-format text
+          set +e
+          claude -p "$PROMPT" --max-turns 40 --allowedTools "Read,Grep,Glob,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*)" --output-format text > review.md
+          code=$?
+          set -e
+          verdict=$(grep -oE 'VERDICT: *(APPROVE|CHANGES)' review.md | tail -1 | sed -E 's/VERDICT: *//' || true)
+          grep -vE '^[[:space:]]*VERDICT: *(APPROVE|CHANGES)[[:space:]]*$' review.md > comment.md || true
+          if [ -z "$verdict" ] || ! grep -qE 'Verdict *: *(✅|⚠)' comment.md; then
+            verdict=CHANGES
+            { echo "## Verdict : ⚠️ à revoir"; echo; echo "L'inspecteur n'a pas pu conclure (code $code). Relance l'inspection depuis Vessel, ou décide toi-même."; echo; echo "<details><summary>Sortie brute</summary>"; echo; tail -c 3000 review.md; echo; echo "</details>"; } > comment.md
+          fi
+          # cohérence : pas d'APPROVE si le commentaire ne dit pas ✅
+          if [ "$verdict" = APPROVE ] && ! grep -qE 'Verdict *: *✅' comment.md; then verdict=CHANGES; fi
+          echo "$verdict" > verdict.txt
+          gh pr comment "${{ steps.pr.outputs.number }}" --body-file comment.md
+          echo "Verdict publié : $verdict"
 
       - name: Merge automatique si ✅
         id: merge
@@ -110,6 +124,8 @@ jobs:
           fi
           FILES=$(gh pr diff "$num" --name-only)
           gh pr merge "$num" --squash
+          issue="${{ steps.pr.outputs.issue }}"
+          if [ -n "$issue" ]; then gh issue close "$issue" --comment "🏝️ Arrivé au port : PR #$num intégrée." || true; fi
           gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$BRANCH" || true
           echo "merged=true" >> "$GITHUB_OUTPUT"
           echo "title=$(gh pr view "$num" --json title -q .title)" >> "$GITHUB_OUTPUT"
