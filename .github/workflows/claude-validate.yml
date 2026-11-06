@@ -124,6 +124,7 @@ jobs:
           fi
           FILES=$(gh pr diff "$num" --name-only)
           gh pr merge "$num" --squash
+          gh workflow run build.yml --ref main || echo "Assemblage non lancé"
           issue="${{ steps.pr.outputs.issue }}"
           if [ -n "$issue" ]; then gh issue close "$issue" --comment "🏝️ Arrivé au port : PR #$num intégrée." || true; fi
           gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$BRANCH" || true

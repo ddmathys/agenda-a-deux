@@ -1,0 +1,51 @@
+name: Assemblage (site en ligne + APK)
+
+# Lancé par le validateur après un merge (voyage Vessel), ou à la main.
+# Met le site en ligne sur Firebase Hosting : l'app Android est un cadre
+# autour du site, elle est donc à jour dès que le site l'est.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Mise en ligne (Firebase Hosting)
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          if [ -z "$FIREBASE_TOKEN" ]; then echo "::error::Secret FIREBASE_TOKEN manquant (Vessel › Atelier)"; exit 1; fi
+          npx -y firebase-tools@14 deploy --only hosting --project agenda-a-deux-dm --token "$FIREBASE_TOKEN" --non-interactive
+          if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q '^functions/'; then echo "::warning::Les Cloud Functions ont changé : déploiement manuel nécessaire."; fi
+
+      - name: E-mail « nouvelle version »
+        if: always()
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+          STATUS: ${{ job.status }}
+        run: |
+          if [ -z "$RESEND_API_KEY" ] || [ -z "$NOTIFY_EMAIL" ]; then echo "Secrets e-mail absents."; exit 0; fi
+          esc() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
+          LAST="$(git log -1 --format=%s)"
+          if [ "$STATUS" = success ]; then SUBJECT="📲 Agenda à deux est à jour : $LAST"; else SUBJECT="⛈️ Agenda à deux : la mise en ligne a échoué"; fi
+          if [ "$STATUS" = success ]; then HTML="<h2>📲 Agenda à deux est à jour</h2><p><b>$(esc "$LAST")</b></p><p>Ouvre l'app sur ton téléphone : elle affiche déjà la nouvelle version (c'est le site en ligne, <a href=\"https://agenda-a-deux-dm.web.app/\">https://agenda-a-deux-dm.web.app/</a>).</p><p>Pas encore installée ? L'APK est en pièce jointe (ou <a href=\"https://agenda-a-deux-dm.web.app/agenda-a-deux.apk\">télécharge-la ici</a>).</p>"; else HTML="<h2>⛈️ Agenda à deux : la mise en ligne a échoué</h2><p>$(esc "$LAST")</p><p>Ouvre le voyage dans Vessel : un bouton permet de relancer l'assemblage.</p>"; fi
+          if [ -f "public/agenda-a-deux.apk" ] && [ "$STATUS" = success ]; then
+            base64 -w0 "public/agenda-a-deux.apk" > apk.b64
+            jq -n --arg to "$NOTIFY_EMAIL" --arg subject "$SUBJECT" --arg html "$HTML" --arg f "agenda-a-deux.apk" --rawfile c apk.b64 '{from:"Vessel <noreply@dmathys.dev>", to:[$to], subject:$subject, html:$html, attachments:[{filename:$f, content:$c}]}' > mail.json
+          else
+            jq -n --arg to "$NOTIFY_EMAIL" --arg subject "$SUBJECT" --arg html "$HTML" '{from:"Vessel <noreply@dmathys.dev>", to:[$to], subject:$subject, html:$html}' > mail.json
+          fi
+          curl -sS -f -X POST https://api.resend.com/emails -H "Authorization: Bearer $RESEND_API_KEY" -H 'Content-Type: application/json' --data @mail.json > /dev/null || echo "Envoi de l'e-mail échoué (non bloquant)."
