@@ -29,7 +29,7 @@ jobs:
           if [ -z "$FIREBASE_TOKEN" ]; then echo "::error::Secret FIREBASE_TOKEN manquant (Vessel › Atelier)"; exit 1; fi
           # firebase.json n'indique pas le site : on le précise pour la CI (fichier non commité)
           jq 'if (.hosting|type)=="object" then .hosting.site="agenda-a-deux-dm" else . end' firebase.json > fb.tmp && mv fb.tmp firebase.json
-          npx -y firebase-tools@14 deploy --only hosting --project agenda-a-deux-dm --token "$FIREBASE_TOKEN" --non-interactive
+          npx -y firebase-tools@13 deploy --only hosting --project agenda-a-deux-dm --non-interactive
           if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q '^functions/'; then echo "::warning::Les Cloud Functions ont changé : déploiement manuel nécessaire."; fi
 
       - name: E-mail « nouvelle version »
