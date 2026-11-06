@@ -1,0 +1,47 @@
+name: Claude (robot @claude)
+
+# Écris « @claude ... » dans une issue (ou depuis Vessel) : le robot implémente
+# la demande et pousse une branche claude/**. Le validateur prend le relais.
+# Authentification : abonnement Claude Pro (secret CLAUDE_CODE_OAUTH_TOKEN).
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  issues:
+    types: [opened, assigned]
+
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  claude:
+    # Seul le propriétaire du repo peut déclencher le robot (dépôt public : protège le quota Pro).
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && github.event.comment.user.login == github.repository_owner) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && github.event.comment.user.login == github.repository_owner) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && github.event.review.user.login == github.repository_owner) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) && github.event.issue.user.login == github.repository_owner)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: |
+            --max-turns 40
+            --append-system-prompt "Tu es le DÉVELOPPEUR de Agenda à deux. Avant toute modification : lis REGLES.md à la racine (et CLAUDE.md / AGENTS.md s'ils existent) et les skills .claude/skills/agenda-ux, agenda-tech et agenda-non-regression, et respecte-les. Fais exactement ce qui est demandé, rien de plus. Ajoute ou mets à jour un test dès que tu touches à de la logique testée (voir agenda-non-regression). Si le commentaire qui te déclenche contient #règle, ajoute la règle à REGLES.md (une ligne courte, bonne section) dans le même commit. La première ligne de ton commit est un titre clair en français (elle devient le titre de la PR). Après ton push, le VALIDATEUR ouvre la PR, la relit et la merge automatiquement si tout est vert : n'ouvre pas de PR toi-même. Réponds en français, simplement : le capitaine n'est pas développeur. Ne touche jamais aux secrets, aux clés, aux règles Firestore/Storage, aux dépendances (package.json), à android/ ni à .github/ sans demande explicite."

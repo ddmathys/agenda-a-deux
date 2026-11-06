@@ -1,0 +1,136 @@
+name: Validateur (revue + merge auto)
+
+# Se déclenche à chaque push du robot développeur sur une branche claude/**.
+# 1. checks  : compilation TypeScript + build Vite.
+# 2. review  : ouvre la PR si besoin, revue par Claude (skills agenda-*),
+#              commentaire avec verdict ✅/⚠️, puis MERGE AUTOMATIQUE si :
+#              checks verts + verdict APPROVE + aucune zone sensible touchée.
+
+on:
+  push:
+    branches: ['claude/**']
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Typecheck + build
+        run: npm run build
+
+  review:
+    needs: checks
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ouvrir ou retrouver la PR
+        id: pr
+        run: |
+          issue=$(echo "$BRANCH" | sed -nE 's#^claude/issue-([0-9]+)-.*#\1#p')
+          num=$(gh pr list --head "$BRANCH" --state open --json number -q '.[0].number')
+          if [ -z "$num" ]; then
+            title=$(git log -1 --format=%s)
+            body="PR ouverte automatiquement par le validateur."
+            [ -n "$issue" ] && body="$body
+
+          Closes #$issue"
+            gh pr create --base main --head "$BRANCH" --title "$title" --body "$body"
+            num=$(gh pr list --head "$BRANCH" --state open --json number -q '.[0].number')
+          fi
+          echo "number=$num" >> "$GITHUB_OUTPUT"
+          echo "issue=$issue" >> "$GITHUB_OUTPUT"
+          # Zones sensibles : jamais de merge automatique, même avec ✅.
+          # (liste stockée d'abord : avec pipefail, `gh | grep -q` peut échouer sur SIGPIPE)
+          files=$(gh pr diff "$num" --name-only)
+          if printf '%s\n' "$files" | grep -E '^(firestore\.rules|storage\.rules|firebase\.json|vercel\.json|\.github/|(.*/)?android/|.*\.gradle\.kts|.*AndroidManifest\.xml|.*google-services\.json|(.*/)?package(-lock)?\.json)|(auth|session|admin|secret|token|pricing|payment|billing|credit)[^/]*$' > /dev/null; then
+            echo "sensitive=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sensitive=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Revue par Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Tu es le VALIDATEUR de Agenda à deux (dépôt ${{ github.repository }}). Tu relis la PR #${{ steps.pr.outputs.number }}.
+            Résultat des vérifications automatiques (compilation TypeScript + build Vite) : ${{ needs.checks.result }}.
+            Zone sensible touchée (détection automatique) : ${{ steps.pr.outputs.sensitive }}.
+            Issue d'origine : ${{ steps.pr.outputs.issue || 'aucune' }}.
+
+            1. Lis REGLES.md (et CLAUDE.md / AGENTS.md s'ils existent) et les skills .claude/skills/agenda-ux, agenda-tech, agenda-non-regression.
+            2. Lis la demande (gh issue view <issue> --comments si une issue existe) puis la PR (gh pr view, gh pr diff).
+            3. Vérifie : la demande est-elle faite, et rien de plus ? Les règles et les skills sont-ils respectés ? Un test manque-t-il ? Quel est le risque (Faible / Moyen / Élevé selon agenda-non-regression) ?
+            4. Poste UN seul commentaire en français sur la PR avec gh pr comment ${{ steps.pr.outputs.number }} --body-file <fichier>. Format :
+               « ## Verdict : ✅ prêt à merger » ou « ## Verdict : ⚠️ à revoir », puis Risque, Ce que j'ai vérifié (liste courte), Problèmes (avec fichier:ligne). Si tu n'as pas pu voir le rendu visuel, dis-le.
+            5. Écris le fichier verdict.txt à la racine contenant exactement APPROVE ou CHANGES.
+               APPROVE uniquement si : vérifications = success, demande respectée sans ajout, risque Faible ou Moyen, zone sensible = false.
+            Ne modifie aucun fichier du dépôt, ne pousse rien.
+          claude_args: |
+            --max-turns 30
+            --allowedTools "Read,Grep,Glob,Write,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(git log:*),Bash(git diff:*)"
+
+      - name: Merge automatique si ✅
+        id: merge
+        if: needs.checks.result == 'success' && steps.pr.outputs.sensitive == 'false'
+        run: |
+          verdict=$(tr -d '[:space:]' < verdict.txt 2>/dev/null || echo NONE)
+          num="${{ steps.pr.outputs.number }}"
+          if [ "$verdict" != "APPROVE" ]; then
+            echo "Verdict = $verdict : pas de merge automatique."
+            exit 0
+          fi
+          FILES=$(gh pr diff "$num" --name-only)
+          gh pr merge "$num" --squash
+          gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/$BRANCH" || true
+          echo "merged=true" >> "$GITHUB_OUTPUT"
+          echo "title=$(gh pr view "$num" --json title -q .title)" >> "$GITHUB_OUTPUT"
+          echo "PR #$num mergée."
+
+      - name: E-mail « arrivée au port »
+        if: steps.merge.outputs.merged == 'true'
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+          TITLE: ${{ steps.merge.outputs.title }}
+          PR_URL: ${{ github.server_url }}/${{ github.repository }}/pull/${{ steps.pr.outputs.number }}
+        run: |
+          if [ -z "$RESEND_API_KEY" ] || [ -z "$NOTIFY_EMAIL" ]; then echo "Secrets e-mail absents : pas d'e-mail."; exit 0; fi
+          esc() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
+          html="<h2>⚓ Agenda à deux : modification arrivée au port</h2><p><b>$(esc "$TITLE")</b></p><p>C'est intégré sur GitHub. La mise en ligne (npm run deploy) reste à faire à la main pour l'instant.</p><p><a href=\"$PR_URL\">Voir le détail</a></p>"
+          jq -n --arg to "$NOTIFY_EMAIL" --arg subject "⚓ Agenda à deux : $TITLE" --arg html "$html" \
+            '{from:"Vessel <noreply@dmathys.dev>", to:[$to], subject:$subject, html:$html}' > mail.json
+          curl -sS -f -X POST https://api.resend.com/emails -H "Authorization: Bearer $RESEND_API_KEY" -H 'Content-Type: application/json' --data @mail.json > /dev/null || echo "Envoi de l'e-mail échoué (non bloquant)."
+
+      - name: Pas de merge auto (zone sensible ou checks rouges)
+        if: needs.checks.result != 'success' || steps.pr.outputs.sensitive == 'true'
+        run: |
+          gh pr comment "${{ steps.pr.outputs.number }}" --body "🔒 Merge automatique désactivé pour cette PR (vérifications : ${{ needs.checks.result }}, zone sensible : ${{ steps.pr.outputs.sensitive }}). À merger à la main après relecture (ou « Ouvrir l'écluse » dans Vessel)."
