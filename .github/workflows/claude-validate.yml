@@ -77,26 +77,26 @@ jobs:
           fi
 
       - name: Revue par Claude
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: |
-            Tu es le VALIDATEUR de Agenda à deux (dépôt ${{ github.repository }}). Tu relis la PR #${{ steps.pr.outputs.number }}.
-            Résultat des vérifications automatiques (compilation TypeScript + build Vite) : ${{ needs.checks.result }}.
-            Zone sensible touchée (détection automatique) : ${{ steps.pr.outputs.sensitive }}.
-            Issue d'origine : ${{ steps.pr.outputs.issue || 'aucune' }}.
+        # CLI Claude Code en direct : claude-code-action ne gère pas l'événement push.
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          PROMPT: |
+              Tu es le VALIDATEUR de Agenda à deux (dépôt ${{ github.repository }}). Tu relis la PR #${{ steps.pr.outputs.number }}.
+              Résultat des vérifications automatiques (compilation TypeScript + build Vite) : ${{ needs.checks.result }}.
+              Zone sensible touchée (détection automatique) : ${{ steps.pr.outputs.sensitive }}.
+              Issue d'origine : ${{ steps.pr.outputs.issue || 'aucune' }}.
 
-            1. Lis REGLES.md (et CLAUDE.md / AGENTS.md s'ils existent) et les skills .claude/skills/agenda-ux, agenda-tech, agenda-non-regression.
-            2. Lis la demande (gh issue view <issue> --comments si une issue existe) puis la PR (gh pr view, gh pr diff).
-            3. Vérifie : la demande est-elle faite, et rien de plus ? Les règles et les skills sont-ils respectés ? Un test manque-t-il ? Quel est le risque (Faible / Moyen / Élevé selon agenda-non-regression) ?
-            4. Poste UN seul commentaire en français sur la PR avec gh pr comment ${{ steps.pr.outputs.number }} --body-file <fichier>. Format :
-               « ## Verdict : ✅ prêt à merger » ou « ## Verdict : ⚠️ à revoir », puis Risque, Ce que j'ai vérifié (liste courte), Problèmes (avec fichier:ligne). Si tu n'as pas pu voir le rendu visuel, dis-le.
-            5. Écris le fichier verdict.txt à la racine contenant exactement APPROVE ou CHANGES.
-               APPROVE uniquement si : vérifications = success, demande respectée sans ajout, risque Faible ou Moyen, zone sensible = false.
-            Ne modifie aucun fichier du dépôt, ne pousse rien.
-          claude_args: |
-            --max-turns 30
-            --allowedTools "Read,Grep,Glob,Write,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(git log:*),Bash(git diff:*)"
+              1. Lis REGLES.md (et CLAUDE.md / AGENTS.md s'ils existent) et les skills .claude/skills/agenda-ux, agenda-tech, agenda-non-regression.
+              2. Lis la demande (gh issue view <issue> --comments si une issue existe) puis la PR (gh pr view, gh pr diff).
+              3. Vérifie : la demande est-elle faite, et rien de plus ? Les règles et les skills sont-ils respectés ? Un test manque-t-il ? Quel est le risque (Faible / Moyen / Élevé selon agenda-non-regression) ?
+              4. Poste UN seul commentaire en français sur la PR avec gh pr comment ${{ steps.pr.outputs.number }} --body-file <fichier>. Format :
+                 « ## Verdict : ✅ prêt à merger » ou « ## Verdict : ⚠️ à revoir », puis Risque, Ce que j'ai vérifié (liste courte), Problèmes (avec fichier:ligne). Si tu n'as pas pu voir le rendu visuel, dis-le.
+              5. Écris le fichier verdict.txt à la racine contenant exactement APPROVE ou CHANGES.
+                 APPROVE uniquement si : vérifications = success, demande respectée sans ajout, risque Faible ou Moyen, zone sensible = false.
+              Ne modifie aucun fichier du dépôt, ne pousse rien.
+        run: |
+          npm install -g @anthropic-ai/claude-code >/dev/null 2>&1
+          claude -p "$PROMPT" --max-turns 30 --allowedTools "Read,Grep,Glob,Write,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(git log:*),Bash(git diff:*)" --output-format text
 
       - name: Merge automatique si ✅
         id: merge
